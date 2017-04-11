@@ -39,6 +39,9 @@ $touslesbillets[]=$unarticle;
 
 ;?>
 
+	<!DOCTYPE html>
+	<html>
+
 	<!-- on récupere le headers  -->
 	<?php include_once("header.php"); ?>
 
@@ -328,4 +331,4 @@ $touslesbillets[]=$unarticle;
 						<!-- all script -->
 		</body>
 
-		</html>
+	</html>
