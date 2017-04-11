@@ -50,7 +50,7 @@ $touslesbillets[]=$unarticle;
 		<body>
 
 
-			<?php include_once("body_static.php"); ?>
+			<?php include_once("header_top.php"); ?>
 
 				<?php include_once("menu.php"); ?>
 
