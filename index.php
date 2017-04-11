@@ -53,20 +53,7 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 
 			<link href="css/bootstrap.css" rel='stylesheet' type='text/css' />
 			<link href="css/style.css" rel='stylesheet' type='text/css' />
-			<script src="js/jquery.min.js"></script>
-			<!---- start-smoth-scrolling---->
-			<script type="text/javascript" src="js/move-top.js"></script>
-			<script type="text/javascript" src="js/easing.js"></script>
-			<script type="text/javascript">
-				jQuery(document).ready(function ($) {
-					$(".scroll").click(function (event) {
-						event.preventDefault();
-						$('html,body').animate({
-							scrollTop: $(this.hash).offset().top
-						}, 1000);
-					});
-				});
-			</script>
+
 			<!--start-smoth-scrolling-->
 		</head>
 
@@ -373,6 +360,20 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 							function hideURLbar() {
 								window.scrollTo(0, 1);
 							}
+						</script>
+						<script src="js/jquery.min.js"></script>
+						<!---- start-smoth-scrolling---->
+						<script type="text/javascript" src="js/move-top.js"></script>
+						<script type="text/javascript" src="js/easing.js"></script>
+						<script type="text/javascript">
+							jQuery(document).ready(function ($) {
+								$(".scroll").click(function (event) {
+									event.preventDefault();
+									$('html,body').animate({
+										scrollTop: $(this.hash).offset().top
+									}, 1000);
+								});
+							});
 						</script>
 
 
