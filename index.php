@@ -184,18 +184,7 @@ $touslesbillets[]=$unarticle;
 												<div class="clearfix"></div>
 											</div>
 										</div>
-										<div class="abt-2">
-											<h3>ARCHIVES</h3>
-											<ul>
-												<li><a href="single.php">Lorem Ipsum is simply dummy text of the printing and typesetting industry. </a></li>
-												<li><a href="single.php">Lorem Ipsum has been the industry's standard dummy text ever since the 1500s</a></li>
-												<li><a href="single.php">When an unknown printer took a galley of type and scrambled it to make a type specimen book. </a> </li>
-												<li><a href="single.php">It has survived not only five centuries, but also the leap into electronic typesetting</a> </li>
-												<li><a href="single.php">Remaining essentially unchanged. It was popularised in the 1960s with the release of </a> </li>
-												<li><a href="single.php">Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing </a> </li>
-												<li><a href="single.php">Software like Aldus PageMaker including versionsof Lorem Ipsum.</a> </li>
-											</ul>
-										</div>
+
 
 									</div>
 									<div class="clearfix"></div>
