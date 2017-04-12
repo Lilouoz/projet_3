@@ -27,7 +27,7 @@ while ($row = $req->fetch(PDO::FETCH_ASSOC)) {
 		'auteur'=> $row['auteur'],
 		'date_creation'=> $row['date_creation'],
 	);
-$touslesbillets[]=$unarticle;
+$touslesbillets[]=$unbillet;
 	
 }
 
