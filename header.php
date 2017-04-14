@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-	<html>
 
 	<head>
 		<title>Coffee Break a Blog Category Flat Bootstarp responsive Website Template | Home :: w3layouts</title>
