@@ -1,35 +1,9 @@
 <?php 
 //modele : Acces au donnes
 
-try
-{
-	$bdd = new PDO('mysql:host=localhost;dbname=projet_blog_p3;charset=utf8', 'root', 'root');
-}
-catch (Exception $e)
-{
-        die('Erreur : ' . $e->getMessage());
-}
+require 'modele/blog/get_billets.php';
 
-$query = "SELECT * FROM billets ORDER BY date_creation, name";
-$req =$bdd->prepare($query);
-$req->execute();
-
-// PDO::FETCH_ASSOC = retourne un tableau indexé par le nom de la colonne comme retourné dans le jeu de résultats
-
-while ($row = $req->fetch(PDO::FETCH_ASSOC)) {
-	
-	$unbillet = array(
-		'id'=> $row['id'],
-		'image'=> $row['image'],
-		'alt'=> $row['alt'],
-		'titre'=> $row['titre'],
-		'contenu'=> $row['contenu'],
-		'auteur'=> $row['auteur'],
-		'date_creation'=> $row['date_creation'],
-	);
-$touslesbillets[]=$unbillet;
-	
-}
+$billets = get_billets();
 
 //traitement 
 
