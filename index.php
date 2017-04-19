@@ -18,7 +18,7 @@ $req->execute();
 
 while ($row = $req->fetch(PDO::FETCH_ASSOC)) {
 	
-	$unbillet = array(
+	$billet = array(
 		'id'=> $row['id'],
 		'image'=> $row['image'],
 		'alt'=> $row['alt'],
@@ -27,9 +27,17 @@ while ($row = $req->fetch(PDO::FETCH_ASSOC)) {
 		'auteur'=> $row['auteur'],
 		'date_creation'=> $row['date_creation'],
 	);
-$touslesbillets[]=$unbillet;
-	
+
+	//creation objet $billet 
+{
+      $touslesbillets[] = new Billet($donnees);
 }
+
+    return $touslesbillets;
+  }
+
+
+
 
 
 //traitement 
