@@ -8,8 +8,14 @@ class Billet
 	private $_contenu;
 	private $_auteur;
 	private $_date_creation;
-		
+	
+// Un tableau de données doit être passé à la fonction (d'où le préfixe « array »).
+public function hydrate(array $donnees)
+  {
+ 
+  }
 
+	
 // liste des getters
 
 public function id()
