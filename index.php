@@ -1,6 +1,7 @@
 <?php 
 //modele : Acces au donnes
 
+<<<<<<< HEAD
 try
 {
 	$bdd = new PDO('mysql:host=localhost;dbname=projet_blog_p3;charset=utf8', 'root', 'root');
@@ -21,7 +22,11 @@ while ($row = $req->fetch(PDO::FETCH_ASSOC)) {
 	$touslesbillets[] = new Billet($row);
 	
 ;?>
+=======
+require 'modele/blog/get_billets.php';
+>>>>>>> parent of d3aeecf... retour en mode tableau
 
+$billets = get_billets();
 
 
 
