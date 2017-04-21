@@ -18,60 +18,33 @@ $req->execute();
 
 while ($row = $req->fetch(PDO::FETCH_ASSOC)) {
 	
-	$billet = array(
-		'id'=> $row['id'],
-		'image'=> $row['image'],
-		'alt'=> $row['alt'],
-		'titre'=> $row['titre'],
-		'contenu'=> $row['contenu'],
-		'auteur'=> $row['auteur'],
-		'date_creation'=> $row['date_creation'],
-	);
-
-	//creation objet $billet 
-{
-      $touslesbillets[] = new Billet($donnees);
-}
-
-    return $touslesbillets;
-  }
-
-
-
-
-
-//traitement 
-
-
-
-//vue
-
+	$touslesbillets[] = new Billet($row);
+	
 ;?>
+
+
+
+
+
+
 
 	<!DOCTYPE html>
 	<html>
-
 	<!-- on récupere le headers  -->
+
+
 	<?php include_once("header.php"); ?>
+		<?php include_once("header.php"); ?> +
 
+			<body>
+				<?php include_once("header_top.php"); ?>
+					<?php include_once("menu.php"); ?>
+						<?php include_once("banner.php"); ?>
+							<?php include ("container_corps.php"); ?>
+								<?php include_once("footer.php"); ?>
+									<?php include ("script.php"); ?>
 
+			</body>
 
-		<body>
-
-
-			<?php include_once("header_top.php"); ?>
-
-				<?php include_once("menu.php"); ?>
-
-					<?php include_once("banner.php"); ?>
-
-						<?php include ("container_corps.php"); ?>
-
-							<?php include_once("footer.php"); ?>
-
-								<?php include ("script.php"); ?>
-
-
-		</body>
 
 	</html>
