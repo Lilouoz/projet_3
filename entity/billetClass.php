@@ -11,8 +11,8 @@ class Billet
 				$_date_updated,
 				$_is_publicated;
 	
-	
-	private $_step;
+	 
+	 
 // dans l'index
 // $billet = new Billet($row);
 	

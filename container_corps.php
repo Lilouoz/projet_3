@@ -5,7 +5,7 @@
 			<div class="col-md-8 about-left">
 				<div class="about-one">
 					<p>Derniers chapitres</p>
-					<h3>Coffee of the month</h3>
+					<h3>TITRE CHAPITRES</h3>
 				</div>
 				<div class="about-two">
 					<a href="single.php"><img src="images/c-1.jpg" alt="" /></a>

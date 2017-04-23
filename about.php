@@ -98,7 +98,7 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 					<h2>Aliquam erat</h2>
 					<h1>Suspendisse potenti</h1>
 					<div class="banner-btn">
-						<a href="single.html">Read More</a>
+						<a href="single.html">En savoir plus</a>
 					</div>
 				</div>
 			</div>
