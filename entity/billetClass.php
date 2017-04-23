@@ -1,15 +1,15 @@
 <?php
 class Billet 
 {
-	private $_id;
-	private $_image;
-	private $_alt;
-	private $_titre;
-	private $_contenu;
-	private $_auteur;
-	private $_date_creation;
-	private $_date_updated;
-	private $_is_publicated;
+	protected 	$_id,
+	  			$_image,
+	  			$_alt,
+	  			$_titre,
+	  			$_contenu,
+				$_auteur,
+				$_date_creation,
+				$_date_updated,
+				$_is_publicated;
 	
 	
 	private $_step;
