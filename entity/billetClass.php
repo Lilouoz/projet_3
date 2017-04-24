@@ -24,7 +24,7 @@ public function __construct($row)
 // Un tableau de données doit être passé à la fonction (d'où le préfixe « array »).
 public function hydrate(array $data)
  {
-	 foreach ($donnees as $key => $value)
+	 foreach ($data as $key => $value)
 	  {
 		  
 		  //$row['id'] = 5
