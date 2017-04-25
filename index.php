@@ -26,18 +26,27 @@ while ($row = $req->fetch(PDO::FETCH_ASSOC)) {
 		'contenu'=> $row['contenu'],
 		'auteur'=> $row['auteur'],
 		'date_creation'=> $row['date_creation'],
-	);
+	); }
 	//creation objet $billet 
-{
+/*
+	{
       $touslesbillets[] = new Billet($data);
 }
     return $touslesbillets;
-  }
+ 
+  
+  */
 /*********** fin du manager **********/
+
+
+/* 
 
 
 $manager = new BilletsManager();
 $billets = $manager->getAll();
+
+
+*/
 
 //traitement 
 //vue
