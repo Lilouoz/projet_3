@@ -24,24 +24,24 @@ $billets = $manager->getBillets();
 	<html>
 
 	<!-- on récupere le headers  -->
-	<?php include_once(PARTIAL.'header.php'); ?>
+	<?php include_once( 'header.php'); ?>
 
 
 
 		<body>
 
 
-			<?php include_once(PARTIAL.'header_top.php'); ?>
+			<?php include_once( 'header_top.php'); ?>
 
-				<?php include_once(PARTIAL.'menu.php'); ?>
+				<?php include_once( 'menu.php'); ?>
 
-					<?php include_once(PARTIAL.'banner.php'); ?>
+					<?php include_once( 'banner.php'); ?>
 
-						<?php include (PARTIAL.'container_corps.php'); ?>
+						<?php include ( 'container_corps.php'); ?>
 
-							<?php include_once(PARTIAL.'footer.php'); ?>
+							<?php include_once( 'footer.php'); ?>
 
-								<?php include (PARTIAL.'script.php'); ?>
+								<?php include ( 'script.php'); ?>
 
 
 		</body>
