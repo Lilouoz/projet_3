@@ -1,8 +1,7 @@
 <?php
 class BilletsManager
 {
-	private $_db;
-{
+
   private $_db; // Instance de PDO.
 
   public function __construct($db)
@@ -11,10 +10,23 @@ class BilletsManager
   }
 
   public function add(Billet $billet)
-  {
+  { 
     // Préparation de la requête d'insertion.
-    // Assignation des valeurs pour le nom, contenu et du Billet.
+    // Assignation des valeurs pour le  id, image , titre, contenu auteur date de creation du Billet.
     // Exécution de la requête.
+	  $q=$this->_db->prepare('INSERT INTO `billets`(`id`, `image`, `alt`, `titre`, `contenu`, `auteur`, `date_creation`) VALUES ([value-1],[value-2],[value-3],[value-4],[value-5],[value-6],[value-7]) ');
+	 
+	  
+	  $q->bindValue(':id', $billet->id());
+      $q->bindValue(':image', $billet->image(), PDO::PARAM_STR);
+	  $q->bindValue(':alt', $billet->alt(), PDO::PARAM_STR);
+	  $q->bindValue(':titre', $billet->titre(), PDO::PARAM_STR);
+	  $q->bindValue(':contenu', $billet->contenu(), PDO::PARAM_STR);
+	  $q->bindValue(':auteur', $billet->auteur(), PDO::PARAM_STR);
+	  $q->bindValue(':date_creation', $billet->date_creation());
+	  $q->execute();
+		  
+		  
   }
 
   public function delete(Billet $billet)
