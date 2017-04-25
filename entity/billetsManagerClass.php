@@ -17,11 +17,21 @@ class BilletsManager extends DbManager
 		
 		{
             // instance of a billet object
-            $billet = new Billet();
-            // hydrate manualy from db datas
-            $billet->hydrate($row);
-            // now you have an array of object (instead of an array of array)
+			$billet= new Billet();
+			
+			// hydrate manualy from bdd datas
+
+			$billet->setId($row['id']);
+			$billet->setImage($row['image']);
+			$billet->setAlt($row['alt']);
+			$billet->setTitre($row['titre']);
+			$billet->setContenu($row['contenu']);
+			$billet->setAuteur($row['auteur']);
+			$billet->setDateCreation($row['date_creation']);
+			
+			 // now you have an array of object (instead of an array of array)
             $billets[] = $billet;
+
         }
 		
 		
