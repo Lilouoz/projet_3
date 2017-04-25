@@ -1,89 +1,73 @@
 <?php
 class Billet 
 {
-	protected 	$_id,
-	protected  	$_image,
-	protected  	$_alt,
-	protected  	$_titre,
-	protected  	$_contenu,
-	protected	$_auteur,
-	protected	$_date_creation,
-	protected	$_date_updated,
-	protected	$_is_publicated;
+	protected 	$id;
+	protected  	$image;
+	protected  	$alt;
+	protected  	$titre;
+	protected  	$contenu;
+	protected	$auteur;
+	protected	$date_creation;
+	 
 	
 	 
 	 
-// dans l'index
-// $billet = new Billet($row);
 	
-public function __construct($row)
-{
-	$this->hydrate($row);
-}
-	
-// Un tableau de données doit être passé à la fonction (d'où le préfixe « array »).
-public function hydrate(array $data)
- {
-	 foreach ($data as $key => $value)
-	  {
-		  
-		  //$row['id'] = 5
-		  
-		  //$key = 'id'; $value = 5
-		  // ->  setId  
-	  
-		  // is_publicated > setIs_publicated
-		  
-		    // On récupère le nom du setter correspondant à l'attribut.
-		    $method = 'set'.ucfirst($key);
-		    // Si le setter correspondant existe.
-		    if (method_exists($this, $method))
-		    {
-		      // On appelle le setter.
-		      $this->$method($value);
-		    }
-	  }
-  }
-	
+public function hydrate(Array $values)
+    {
+        foreach ($values as $key=>$value)
+        {
+            $method = 'set' . ucfirst($key);
+            if (method_exists($this, $method))
+            {
+                $this->$method($value);
+            }
+        }
+    }	
+
+ 
 	
 	
 // liste des getters
-public function id()
+public function getId()
 {
-	return $this->_id;
+	return $this->id;
 }
-public function image()
+public function getImage()
 {
-	return $this->_image;
+	return $this->image;
 }
-public function alt()
+public function getAlt()
 {
-	return $this->_alt;
+	return $this->alt;
 }
-public function titre()
+public function getTitre()
 {
-	return $this->_titre;
+	return $this->titre;
 }
-public function contenu()
+public function getContenu()
 {
-	return $this->_contenu;
+	return $this->contenu;
 }
-public function auteur()
+public function getAuteur()
 {
-	return $this->_auteur;
+	return $this->auteur;
 }
-public function date_creation()
+public function getDate_creation()
 {
-	return $this->_date_creation;
+	return $this->date_creation;
 }
+	
+	/*add later??
 	public function date_updated ()
 {
-	return $this->_date_updated;
+	return $this->date_updated;
 }
 	public function is_publicated ()
 {
-	return $this->_is_publicated;
+	return $this->is_publicated;
 }
+*/
 	
 	
 //Liste des setters
@@ -98,7 +82,7 @@ public function setId($id)
     if ($id > 0)
     {
       // Si c'est le cas, c'est tout bon, on assigne la valeur à l'attribut correspondant.
-      $this->_id = $id;
+      $this->id = $id;
     }
 }
 public function setImage($image)
@@ -106,7 +90,7 @@ public function setImage($image)
     if (is_string($image))
    
 	{
-		$this->_image = $image;	
+		$this->image = $image;	
 	}
   }
 public function setAlt($alt)
@@ -114,7 +98,7 @@ public function setAlt($alt)
     if (is_string($alt))
    
 	{
-		$this->_alt = $alt;	
+		$this->alt = $alt;	
 	}
   }
 public function setTitre($titre)
@@ -122,7 +106,7 @@ public function setTitre($titre)
     if (is_string($titre))
    
 	{
-		$this->_titre = $titre;	
+		$this->titre = $titre;	
 	}
   }
 public function setContenu($contenu)
@@ -130,7 +114,7 @@ public function setContenu($contenu)
     if (is_string($contenu))
    
 	{
-		$this->_contenu = $contenu;	
+		$this->contenu = $contenu;	
 	}
   }
 public function setAuteur($auteur)
@@ -138,7 +122,7 @@ public function setAuteur($auteur)
     if (is_string($auteur))
    
 	{
-		$this->_auteur = $auteur;	
+		$this->auteur = $auteur;	
 	}
   }
 public function setDateCreation($date_creation)
@@ -146,12 +130,15 @@ public function setDateCreation($date_creation)
     if (is_string($date_creation))
    
 	{
-		$this->_date_creation = $date_creation;	
+		$this->date_creation = $date_creation;	
 	}
   }
 	
+	/*add later??
 	public function setIs_publicated($value)
 	{
 		$this->is_publicated = $value;
 	}
+	*/
+	
  }
