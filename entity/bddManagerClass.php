@@ -1,5 +1,5 @@
 <?php
-class BddManager
+class DbManager
 {
     protected $db;
     private $host      = "localhost";
