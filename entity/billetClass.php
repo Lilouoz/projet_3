@@ -2,14 +2,14 @@
 class Billet 
 {
 	protected 	$_id,
-	  			$_image,
-	  			$_alt,
-	  			$_titre,
-	  			$_contenu,
-				$_auteur,
-				$_date_creation,
-				$_date_updated,
-				$_is_publicated;
+	protected  	$_image,
+	protected  	$_alt,
+	protected  	$_titre,
+	protected  	$_contenu,
+	protected	$_auteur,
+	protected	$_date_creation,
+	protected	$_date_updated,
+	protected	$_is_publicated;
 	
 	 
 	 
