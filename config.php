@@ -8,10 +8,9 @@ error_reporting(E_ALL);
 
 function loadClass($class)
 {
-	include("entity/".$class.'Class.php');
+    include("entity/".$class."Class.php");
 }
-
-spl_autoload_register('loadClass');
+spl_autoload_register("loadClass");
 
 
 $host = 'http://'.$_SERVER['HTTP_HOST'].'/';
