@@ -9,7 +9,7 @@ class BilletsManager extends DbManager
      */
     public function getBillets() {
         $db = $this->db;
-        $query = "SELECT * FROM billets";
+        $query = ('SELECT id, image, alt, titre, contenu, auteur,  date_creation FROM billets ORDER BY date_creation DESC');
         $req = $db->prepare($query);
         $req->execute();
 		
@@ -37,6 +37,47 @@ class BilletsManager extends DbManager
 		
         return $billets;
     }
+	
+	    /**
+     * return last billet in db
+     *
+     * @return array
+     */
+    public function getLastBillet() 
+	{
+        $db = $this->db;
+        $query = ('SELECT id, image, alt, titre, contenu, auteur, date_creation FROM billets ORDER BY date_creation DESC LIMIT 0, 1');
+        $req = $db->prepare($query);
+        $req->execute();
+		
+        while($row = $req->fetch(PDO::FETCH_ASSOC)) 
+		
+		{
+            // instance of a billet object
+			$billet= new Billet();
+			
+			// hydrate manualy from bdd datas
+
+			$billet->setId($row['id']);
+			$billet->setImage($row['image']);
+			$billet->setAlt($row['alt']);
+			$billet->setTitre($row['titre']);
+			$billet->setContenu($row['contenu']);
+			$billet->setAuteur($row['auteur']);
+			$billet->setDateCreation($row['date_creation']);
+			
+			 // now you have an array of object (instead of an array of array)
+            $billets[] = $billet;
+
+        }
+		
+		
+        return $billets;
+    }
+	
+	
+	
+	
 	
     /**
      * save the billet in db
@@ -67,13 +108,14 @@ class BilletsManager extends DbManager
 			(
 			
             array(
-                'image'       	=> $billet->getImage(),
+                'id'          	=> $billet->getId(),
+				'image'       	=> $billet->getImage(),
                 'alt' 		  	=> $billet->getAlt(),
 				'titre'       	=> $billet->getTitre(),
                 'contenu' 	  	=> $billet->getContenu(),
                 'auteur'      	=> $billet->getAuteur(),
-                'date_creation' => $billet->getDate_creation(),
-                'id'          	=> $billet->getId()
+                'date_creation' => $billet->getDateCreation()
+                
             )
         );
 		
@@ -103,7 +145,7 @@ class BilletsManager extends DbManager
 				'titre'       	=> $billet->getTitre(),
                 'contenu' 	  	=> $billet->getContenu(),
                 'auteur'      	=> $billet->getAuteur(),
-                'date_creation' => $billet->getDate_creation(),
+                'date_creation' => $billet->getDateCreation(),
                 'id'          	=> $billet->getId()
             )
         );

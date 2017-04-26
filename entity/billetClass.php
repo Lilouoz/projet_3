@@ -8,6 +8,7 @@ class Billet
 	protected  	$contenu;
 	protected	$auteur;
 	protected	$date_creation;
+	protected	$date_creation_fr;
 	 
 	
 	 
@@ -53,10 +54,11 @@ public function getAuteur()
 {
 	return $this->auteur;
 }
-public function getDate_creation()
+public function getDateCreation()
 {
 	return $this->date_creation;
 }
+	 
 	
 	/*add later??
 	public function date_updated ()
@@ -133,6 +135,7 @@ public function setDateCreation($date_creation)
 		$this->date_creation = $date_creation;	
 	}
   }
+	 
 	
 	/*add later??
 	public function setIs_publicated($value)
