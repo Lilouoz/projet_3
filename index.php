@@ -11,7 +11,7 @@ include_once ('config.php');
 
 
 $manager = new BilletsManager();
-$billets = $manager->getBillets();
+ 
 
 
  
