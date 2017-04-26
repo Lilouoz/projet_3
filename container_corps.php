@@ -38,59 +38,33 @@ $billets = $manager->getLastBillet();
 					</div>
 					<?php endforeach;?>
 
-						<div class="about-tre">
-							<div class="a-1">
-								<div class="col-md-6 abt-left">
-									<a href="single.php"><img src="images/c-3.jpg" alt="" /></a>
-									<h6>Find The Most</h6>
-									<h3><a href="single.php">Tasty Coffee</a></h3>
-									<p>Vivamus interdum diam diam, non faucibus tortor consequat vitae. Proin sit amet augue sed massa pellentesque viverra. Suspendisse iaculis purus eget est pretium aliquam ut sed diam.</p>
-									<label>May 29, 2015</label>
-								</div>
-								<div class="col-md-6 abt-left">
-									<a href="single.php"><img src="images/c-4.jpg" alt="" /></a>
-									<h6>Find The Most</h6>
-									<h3><a href="single.php">Tasty Coffee</a></h3>
-									<p>Vivamus interdum diam diam, non faucibus tortor consequat vitae. Proin sit amet augue sed massa pellentesque viverra. Suspendisse iaculis purus eget est pretium aliquam ut sed diam.</p>
-									<label>May 29, 2015</label>
-								</div>
-								<div class="clearfix"></div>
+						<?php	$billets = $manager->getBillets();?>
+
+							<div class="about-tre">
+
+								<?php foreach($billets as $billet):?>
+
+									<div class="a-1">
+										<div class="col-md-6 abt-left">
+											<a href="single.php?billet_id=<?php echo $billet->getId();?>"><img src="<?php echo $billet->getImage()?>" alt="<?php echo $billet->getAlt()?> " /></a>
+											<h6>Chapitres Précedents</h6>
+											<h3><a href="single.php?billet_id=<?php echo $billet->getId();?>"><?php echo $billet->getTitre()?></a></h3>
+											<p>
+												<?php echo $billet->getContenu()?>
+											</p>
+											<label>
+												<?php echo $billet->getDateCreation()?>
+											</label>
+										</div>
+
+										<?php endforeach;?>
+
+
+
+									</div>
+
+
 							</div>
-							<div class="a-1">
-								<div class="col-md-6 abt-left">
-									<a href="single.php"><img src="images/c-5.jpg" alt="" /></a>
-									<h6>Find The Most</h6>
-									<h3><a href="single.php">Tasty Coffee</a></h3>
-									<p>Vivamus interdum diam diam, non faucibus tortor consequat vitae. Proin sit amet augue sed massa pellentesque viverra. Suspendisse iaculis purus eget est pretium aliquam ut sed diam.</p>
-									<label>May 29, 2015</label>
-								</div>
-								<div class="col-md-6 abt-left">
-									<a href="single.php"><img src="images/c-6.jpg" alt="" /></a>
-									<h6>Find The Most</h6>
-									<h3><a href="single.php">Tasty Coffee</a></h3>
-									<p>Vivamus interdum diam diam, non faucibus tortor consequat vitae. Proin sit amet augue sed massa pellentesque viverra. Suspendisse iaculis purus eget est pretium aliquam ut sed diam.</p>
-									<label>May 29, 2015</label>
-								</div>
-								<div class="clearfix"></div>
-							</div>
-							<div class="a-1">
-								<div class="col-md-6 abt-left">
-									<a href="single.php"><img src="images/c-7.jpg" alt="" /></a>
-									<h6>Find The Most</h6>
-									<h3><a href="single.php">Tasty Coffee</a></h3>
-									<p>Vivamus interdum diam diam, non faucibus tortor consequat vitae. Proin sit amet augue sed massa pellentesque viverra. Suspendisse iaculis purus eget est pretium aliquam ut sed diam.</p>
-									<label>May 29, 2015</label>
-								</div>
-								<div class="col-md-6 abt-left">
-									<a href="single.php"><img src="images/c-8.jpg" alt="" /></a>
-									<h6>Find The Most</h6>
-									<h3><a href="single.php">Tasty Coffee</a></h3>
-									<p>Vivamus interdum diam diam, non faucibus tortor consequat vitae. Proin sit amet augue sed massa pellentesque viverra. Suspendisse iaculis purus eget est pretium aliquam ut sed diam.</p>
-									<label>May 29, 2015</label>
-								</div>
-								<div class="clearfix"></div>
-							</div>
-						</div>
 				</div>
 				<div class="col-md-4 about-right heading">
 					<div class="abt-1">
