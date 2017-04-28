@@ -58,7 +58,12 @@ public function getDateCreation()
 {
 	return $this->date_creation;
 }
-	 
+public function getShortText()
+{
+	$text=substr($this->contenu, 0, 10 );
+	
+	return $text;
+}
 	
 	/*add later??
 	public function date_updated ()

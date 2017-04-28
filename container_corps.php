@@ -11,6 +11,7 @@ $billets = $manager->getLastBillet();
 				<div class="col-md-8 about-left">
 					<div class="about-one">
 						<p>Derniers chapitres</p>
+
 						<?php foreach($billets as $billet):?>
 							<h3><?php echo $billet->getTitre()?></h3>
 					</div>
@@ -50,7 +51,7 @@ $billets = $manager->getLastBillet();
 											<h6>Chapitres Précedents</h6>
 											<h3><a href="single.php?billet_id=<?php echo $billet->getId();?>"><?php echo $billet->getTitre()?></a></h3>
 											<p>
-												<?php echo $billet->getContenu()?>
+												<?php echo $billet->getShortText()?>
 											</p>
 											<label>
 												<?php echo $billet->getDateCreation()?>

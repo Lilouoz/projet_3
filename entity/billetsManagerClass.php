@@ -9,7 +9,7 @@ class BilletsManager extends DbManager
      */
     public function getBillets() {
         $db = $this->db;
-        $query = ('SELECT id, image, alt, titre, SUBSTR(contenu, 1, 130)as contenu, auteur,  date_creation FROM billets ORDER BY date_creation DESC LIMIT 0, 2');
+        $query = ('SELECT id, image, alt, titre,contenu, auteur,  date_creation FROM billets ORDER BY date_creation DESC LIMIT 0, 2');
         $req = $db->prepare($query);
         $req->execute();
 		
