@@ -6,6 +6,7 @@
 				<ul class="navig">
 					<li><a href="index.php" class="active">Accueil</a></li>
 					<li><a href="about.php">A propos</a></li>
+					<li><a href="resume.php">Le résumé</a></li>
 					<li><a href="contact.php">Contact</a></li>
 				</ul>
 			</div>

@@ -21,5 +21,5 @@ $root =  $_SERVER['DOCUMENT_ROOT'].'/';
 define("HOST", $host.'projet_blog_p3/' );
 define("ROOT", $root.'projet_blog_p3/' );
 
-define("PARTIAL", ROOT.'partial/');
+//define("PARTIAL", ROOT.'partial/');
 //define("ASSETS", HOST.'assets/');
