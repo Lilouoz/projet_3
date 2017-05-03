@@ -6,10 +6,10 @@ class BilletsManager extends DbManager
      * return all billets in db
      *
      * @return array
-     */
+
     public function getBillets() {
         $db = $this->db;
-        $query = ('SELECT id, image, alt, titre,contenu, auteur,  date_creation FROM billets ORDER BY date_creation DESC LIMIT 0, 4');
+        $query = ('SELECT id, image, alt, titre,contenu, auteur,  date_creation FROM billets ORDER BY date_creation DESC LIMIT 0, 6');
         $req = $db->prepare($query);
         $req->execute();
 		
@@ -37,7 +37,46 @@ class BilletsManager extends DbManager
 		
         return $billets;
     }
-	
+
+         * */
+    /**
+     * return top 3 first  billets in db
+     *
+     * @return array
+     */
+    public function getFirstBillets() {
+        $db = $this->db;
+        $query = ('SELECT SELECT TOP 3 * FROM billets');
+        $req = $db->prepare($query);
+        $req->execute();
+
+        while($row = $req->fetch(PDO::FETCH_ASSOC))
+
+        {
+            // instance of a billet object
+            $billet= new Billet();
+
+            // hydrate manualy from bdd datas
+
+            $billet->setId($row['id']);
+            $billet->setImage($row['image']);
+            $billet->setAlt($row['alt']);
+            $billet->setTitre($row['titre']);
+            $billet->setContenu($row['contenu']);
+            $billet->setAuteur($row['auteur']);
+            $billet->setDateCreation($row['date_creation']);
+
+            // now you have an array of object (instead of an array of array)
+            $billets[] = $billet;
+
+        }
+
+
+        return $billets;
+    }
+
+
+
 	    /**
      * return last billet in db
      *
@@ -54,23 +93,23 @@ class BilletsManager extends DbManager
 		
 		{
             // instance of a last billet object
-			$billet= new Billet();
+            $lastbillet= new Billet();
 			
 			// hydrate manualy from bdd datas
 
-			$billet->setId($row['id']);
-			$billet->setImage($row['image']);
-			$billet->setAlt($row['alt']);
-			$billet->setTitre($row['titre']);
-			$billet->setContenu($row['contenu']);
-			$billet->setAuteur($row['auteur']);
-			$billet->setDateCreation($row['date_creation']);
+            $lastbillet->setId($row['id']);
+            $lastbillet->setImage($row['image']);
+            $lastbillet->setAlt($row['alt']);
+            $lastbillet->setTitre($row['titre']);
+            $lastbillet->setContenu($row['contenu']);
+            $lastbillet->setAuteur($row['auteur']);
+            $lastbillet->setDateCreation($row['date_creation']);
 
 
         }
 		
 		
-        return $billet;
+        return $lastbillet;
     }
 	
 	

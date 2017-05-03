@@ -1,7 +1,7 @@
-<?php $billet = $manager->getLastBillet();
+<?php $lastbillet = $manager->getLastBillet();
 ?>
 
-	<?php	$billets = $manager->getBillets();?>
+	<?php	$firstBillets = $manager->getFirstBillets();?>
 
 
 
@@ -95,17 +95,17 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 
 
 
-									<h3><?php echo $billet->getTitre();?></h3>
+									<h3><?php echo $lastbillet->getTitre();?></h3>
 								</div>
 								<div class="about-two">
-									<a href="single.php?billet_id=<?php echo $billet->getId();?>"><img src="<?php echo $billet->getImage()?>" alt="<?php echo $billet->getAlt()?> " /></a>
-									<p>Posté par <a href="about.php"><?php echo $billet->getAuteur()?></a> Le
-										<?php echo $billet->getDateCreation()?> <a href="#">comments(2)</a></p>
+									<a href="single.php?billet_id=<?php echo $lastbillet->getId();?>"><img src="<?php echo $lastbillet->getImage()?>" alt="<?php echo $lastbillet->getAlt()?> " /></a>
+									<p>Posté par <a href="about.php"><?php echo $lastbillet->getAuteur()?></a> Le
+										<?php echo $lastbillet->getDateCreation()?> <a href="#">comments(2)</a></p>
 									<p>
-										<?php echo $billet->getContenu()?>
+										<?php echo $lastbillet->getContenu()?>
 									</p>
 									<div class="about-btn">
-										<a href="single.php?billet_id=<?php echo $billet->getId();?>">En savoir plus</a>
+										<a href="single.php?billet_id=<?php echo $lastbillet->getId();?>">En savoir plus</a>
 									</div>
 									<ul>
 										<li>
@@ -142,6 +142,7 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 
 											<div class="clearfix"></div>
 										</div>
+
 
 
 									</div>
