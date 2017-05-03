@@ -88,10 +88,7 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 						<div class="about-main">
 							<div class="col-md-8 about-left">
 								<div class="about-one">
-
-                                    <!--********************************** get the last billets *****************************************************-->
-
-                                    <p>Derniers chapitres</p>
+									<p>Derniers chapitres</p>
 
 
 
