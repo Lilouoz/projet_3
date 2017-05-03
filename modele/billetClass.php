@@ -60,10 +60,28 @@ public function getDateCreation()
 }
 public function getShortText()
 {
-	$text=substr($this->contenu, 0, 10 );
+	$text=substr($this->contenu, 0, 210 );
 	
-	return $text;
+	return $text."..." ;
 }
+
+public function getShorterText($input, $length)
+    {
+        //no need to trim, already shorter than trim length
+        if (strlen($input) <= $length) {
+            return $input;
+        }
+
+        //find last space within length
+        $last_space = strrpos(substr($input, 0, $length), ' ');
+        if(!$last_space) $last_space = $length;
+        $trimmed_text = substr($input, 0, $last_space);
+
+        //add ellipses (...)
+        $trimmed_text .= '...';
+
+        return $trimmed_text;
+    }
 	
 	/*add later??
 	public function date_updated ()

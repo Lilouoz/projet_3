@@ -9,7 +9,7 @@ class BilletsManager extends DbManager
      */
     public function getBillets() {
         $db = $this->db;
-        $query = ('SELECT id, image, alt, titre,contenu, auteur,  date_creation FROM billets ORDER BY date_creation DESC LIMIT 0, 2');
+        $query = ('SELECT id, image, alt, titre,contenu, auteur,  date_creation FROM billets ORDER BY date_creation DESC LIMIT 0, 4');
         $req = $db->prepare($query);
         $req->execute();
 		
@@ -53,7 +53,7 @@ class BilletsManager extends DbManager
         while($row = $req->fetch(PDO::FETCH_ASSOC)) 
 		
 		{
-            // instance of a billet object
+            // instance of a last billet object
 			$billet= new Billet();
 			
 			// hydrate manualy from bdd datas
@@ -65,14 +65,12 @@ class BilletsManager extends DbManager
 			$billet->setContenu($row['contenu']);
 			$billet->setAuteur($row['auteur']);
 			$billet->setDateCreation($row['date_creation']);
-			
-			 // now you have an array of object (instead of an array of array)
-            $billets[] = $billet;
+
 
         }
 		
 		
-        return $billets;
+        return $billet;
     }
 	
 	

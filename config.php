@@ -4,11 +4,11 @@
 ini_set ('display_errors', 'on');
 error_reporting(E_ALL);
 
-//autoload all class in entity folder
+//autoload all class in modele folder
 
 function loadClass($class)
 {
-    include("entity/".$class."Class.php");
+    include("modele/".$class."Class.php");
 }
 spl_autoload_register("loadClass");
 
