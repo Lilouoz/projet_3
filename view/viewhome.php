@@ -1,7 +1,7 @@
 <?php $lastbillet = $manager->getLastBillet();
 ?>
 
-	<?php	$firstBillets = $manager->getFirstBillets();?>
+	<?php	$billets = $manager->getFirstBillets();?>
 
 
 
@@ -120,10 +120,10 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 
 								<!--********************************** get the next billets *****************************************************-->
 
-								<?php foreach ($billets as $billet);?>
+								<?php foreach ($billets as $billet):?>
 
 									<div class="about-tre">
-										<div class="a-1">
+                                        <div class="a-1">
 											<div class="col-md-6 abt-left">
 												<a href="single.php?billet_id=<?php echo $billet->getId();?>"><img src="<?php echo $billet->getImage()?>" alt="<?php echo $billet->getAlt()?> "/></a>
 												<h6>Chapitre précedent</h6>
@@ -135,14 +135,10 @@ Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, Sony
 													<?php echo $billet->getDateCreation()?>
 												</label>
 											</div>
-
-
 											<div class="clearfix"></div>
 										</div>
-
-
-
 									</div>
+                                <?php endforeach ?>
 							</div>
 
 

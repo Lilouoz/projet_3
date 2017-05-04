@@ -38,15 +38,27 @@ class BilletsManager extends DbManager
         return $billets;
     }
 
+         *
+
          * */
+
+
+
+	    public function getLastBilletId()
+        {
+            return $this->getLastBillet()->getId;
+        }
+
     /**
+     *
      * return top 3 first  billets in db
      *
      * @return array
      */
     public function getFirstBillets() {
+        $lastbilletid=$this->getLastBilletId();
         $db = $this->db;
-        $query = ('SELECT SELECT TOP 3 * FROM billets');
+        $query = 'SELECT * FROM billets WHERE ID!='.$lastbilletid.' ORDER BY date_creation  DESC LIMIT 4';
         $req = $db->prepare($query);
         $req->execute();
 
