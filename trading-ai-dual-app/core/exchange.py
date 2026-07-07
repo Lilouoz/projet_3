@@ -24,12 +24,23 @@ import ccxt
 
 from .config import EXCHANGES, ExchangeConfig, settings
 from .logger import get_logger, log_trade, send_alert
+from .portfolio import DEFAULT_TAKER_FEE, portfolio
 from .risk import OrderPlan, RiskViolation
 
 logger = get_logger("exchange")
 
 # Exchanges pour lesquels CCXT expose un mode sandbox/testnet natif.
 _TESTNET_CAPABLE = {"binance", "bybit", "kraken"}
+
+# Frais taker par défaut par exchange (spot). Sert au calcul du P&L net.
+# Valeurs indicatives ; affinables selon le palier de frais du compte.
+_TAKER_FEES = {
+    "binance": 0.001,
+    "cryptocom": 0.00075,
+    "pionex": 0.0005,
+    "bybit": 0.001,
+    "kraken": 0.0026,
+}
 
 
 class ExchangeConnector:
@@ -54,6 +65,11 @@ class ExchangeConnector:
     def is_live(self) -> bool:
         """Vrai si CET exchange opère en réel (double condition globale)."""
         return settings.can_trade_live() and self.config.enabled
+
+    @property
+    def fee_rate(self) -> float:
+        """Frais taker de cet exchange (pour le calcul du P&L net)."""
+        return _TAKER_FEES.get(self.name, DEFAULT_TAKER_FEE)
 
     def connect(self) -> Optional[ccxt.Exchange]:
         """
@@ -178,6 +194,12 @@ class ExchangeConnector:
                 "entry": plan.entry_price,
                 "stop_loss": plan.stop_loss,
             }
+            # Suivi portefeuille : on enregistre la position + ses frais.
+            portfolio.open_position(
+                exchange=self.name, symbol=plan.symbol, side=plan.side,
+                amount=plan.amount, entry_price=plan.entry_price,
+                stop_loss=plan.stop_loss, app=app, fee_rate=self.fee_rate,
+            )
             log_trade(
                 app=app, exchange=self.name, symbol=plan.symbol, side=plan.side,
                 amount=plan.amount, price=plan.entry_price, stop_loss=plan.stop_loss,
@@ -214,6 +236,12 @@ class ExchangeConnector:
             send_alert(f"[{self.name}] Échec ordre live {plan.symbol}: {exc}", level="CRITICAL")
             raise
 
+        # Suivi portefeuille : on enregistre la position réelle + ses frais.
+        portfolio.open_position(
+            exchange=self.name, symbol=plan.symbol, side=plan.side,
+            amount=plan.amount, entry_price=plan.entry_price,
+            stop_loss=plan.stop_loss, app=app, fee_rate=self.fee_rate,
+        )
         log_trade(
             app=app, exchange=self.name, symbol=plan.symbol, side=plan.side,
             amount=plan.amount, price=plan.entry_price, stop_loss=plan.stop_loss,

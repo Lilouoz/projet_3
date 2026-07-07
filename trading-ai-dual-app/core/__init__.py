@@ -13,6 +13,11 @@ from .config import settings, EXCHANGES, Settings, ExchangeConfig
 from .risk import risk_manager, RiskManager, OrderPlan, RiskViolation
 from .exchange import registry, ExchangeConnector, ExchangeRegistry
 from .logger import get_logger, log_trade, send_alert
+from .portfolio import portfolio, Portfolio, Position, ClosedTrade
+
+# Initialise la mise de départ du portefeuille à partir des réglages, afin
+# que le rendement (%) affiché dans le dashboard ait une base correcte.
+portfolio.set_starting_capital(settings.starting_capital)
 
 __all__ = [
     "settings",
@@ -29,4 +34,8 @@ __all__ = [
     "get_logger",
     "log_trade",
     "send_alert",
+    "portfolio",
+    "Portfolio",
+    "Position",
+    "ClosedTrade",
 ]

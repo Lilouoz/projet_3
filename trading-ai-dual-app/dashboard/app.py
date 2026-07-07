@@ -27,7 +27,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from core import EXCHANGES, get_logger, registry, risk_manager, settings
+from core import EXCHANGES, get_logger, portfolio, registry, risk_manager, settings
 from core.logger import TRADES_CSV
 
 logger = get_logger("dashboard")
@@ -50,8 +50,10 @@ class SettingsUpdate(BaseModel):
     min_spread: float | None = None
     scalp_enabled: bool | None = None
     swing_enabled: bool | None = None
-    risk_per_trade: float | None = None
-    max_daily_drawdown: float | None = None
+    # ---- Money management (modifiable par l'utilisatrice elle-même) ----
+    risk_per_trade: float | None = None        # % du capital risqué par trade
+    max_daily_drawdown: float | None = None    # seuil du kill-switch journalier
+    starting_capital: float | None = None      # mise de départ (base du rendement)
 
 
 class ExchangeToggle(BaseModel):
@@ -85,7 +87,22 @@ def update_settings(payload: SettingsUpdate):
     donc aucun redémarrage n'est nécessaire.
     """
     changes = {k: v for k, v in payload.model_dump().items() if v is not None}
+
+    # Garde-fous de money management : on borne les valeurs sensibles pour
+    # éviter une saisie dangereuse (ex. risque de 90 % par trade).
+    if "risk_per_trade" in changes:
+        changes["risk_per_trade"] = max(0.001, min(0.10, changes["risk_per_trade"]))
+    if "max_daily_drawdown" in changes:
+        changes["max_daily_drawdown"] = max(0.01, min(0.50, changes["max_daily_drawdown"]))
+    if "starting_capital" in changes:
+        changes["starting_capital"] = max(0.0, changes["starting_capital"])
+
     settings.update(**changes)
+
+    # La mise de départ pilote aussi le calcul de rendement du portefeuille.
+    if "starting_capital" in changes:
+        portfolio.set_starting_capital(changes["starting_capital"])
+
     logger.info("Paramètres mis à jour via dashboard: %s", changes)
     return {"ok": True, "settings": settings.as_dict()}
 
@@ -157,6 +174,29 @@ def status():
         "scalp_enabled": settings.scalp_enabled,
         "swing_enabled": settings.swing_enabled,
     }
+
+
+def _price_lookup(exchange: str, symbol: str):
+    """Récupère le dernier prix d'une paire pour valoriser une position."""
+    conn = registry.get(exchange)
+    if conn is None:
+        return None
+    ticker = conn.fetch_ticker(symbol)
+    if not ticker:
+        return None
+    # 'last' est le dernier prix traité ; repli sur close si absent.
+    return ticker.get("last") or ticker.get("close")
+
+
+@app.get("/api/positions")
+def positions():
+    """
+    État des positions ouvertes + performance réelle.
+
+    Pour chaque position : P&L brut, frais, P&L net (gain réel), rendement.
+    Synthèse globale rapportée à la mise de départ (rendement en %).
+    """
+    return portfolio.snapshot(_price_lookup)
 
 
 @app.get("/api/trades")

@@ -32,6 +32,13 @@
     .val { color:var(--accent); font-weight:600; }
     .muted { color:var(--muted); font-size:12px; }
     .full { grid-column: 1 / -1; }
+    /* Tuiles de synthèse de performance */
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+    .kpi { background:#0d141c; border-radius:8px; padding:12px 14px; }
+    .kpi .k-label { font-size:12px; color:var(--muted); }
+    .kpi .k-value { font-size:20px; font-weight:700; margin-top:4px; }
+    .pos { color:var(--accent); } .neg { color:var(--danger); }
+    input[type=number] { width:100%; padding:8px; border-radius:6px; border:1px solid #33404f; background:#0d141c; color:var(--text); }
   </style>
 </head>
 <body>
@@ -59,10 +66,24 @@
       <label>Spread minimal (app-scalp) : <span id="spread_val" class="val"></span></label>
       <input id="min_spread" type="range" min="0" max="0.005" step="0.0001" oninput="spread_val.textContent=this.value" />
 
-      <label>Risque par trade : <span id="risk_val" class="val"></span></label>
-      <input id="risk_per_trade" type="range" min="0.005" max="0.05" step="0.005" oninput="risk_val.textContent=this.value" />
-
       <div style="margin-top:16px"><button onclick="saveSettings()">💾 Appliquer</button></div>
+    </section>
+
+    <!-- Money management (paramètres pilotés par l'utilisatrice) -->
+    <section class="card">
+      <h2>💰 Money management</h2>
+      <p class="muted">Ces réglages pilotent le risque et servent de base au calcul du rendement réel. Modifiables à tout moment.</p>
+
+      <label>Mise de départ (USD)</label>
+      <input id="starting_capital" type="number" min="0" step="100" placeholder="5000" />
+
+      <label>Risque par trade : <span id="risk_val" class="val"></span> (max 10 %)</label>
+      <input id="risk_per_trade" type="range" min="0.005" max="0.10" step="0.005" oninput="risk_val.textContent=(this.value*100).toFixed(1)+'%'" />
+
+      <label>Drawdown journalier max (kill-switch) : <span id="dd_val" class="val"></span></label>
+      <input id="max_daily_drawdown" type="range" min="0.01" max="0.20" step="0.01" oninput="dd_val.textContent=(this.value*100).toFixed(0)+'%'" />
+
+      <div style="margin-top:16px"><button onclick="saveMoney()">💾 Appliquer le money management</button></div>
     </section>
 
     <!-- On/Off par app -->
@@ -94,6 +115,17 @@
       <table id="proposals-table"><thead><tr><th>Paire</th><th>Action</th><th>Conv.</th><th>Raison</th></tr></thead><tbody></tbody></table>
     </section>
 
+    <!-- Performance réelle : positions ouvertes + P&L net + rendement -->
+    <section class="card full">
+      <h2>📈 Performance réelle (frais déduits)</h2>
+      <div id="kpis" class="kpis"></div>
+      <table id="positions-table" style="margin-top:14px"><thead><tr>
+        <th>Paire</th><th>App</th><th>Sens</th><th>Qté</th><th>Entrée</th><th>Prix actuel</th>
+        <th>P&L brut</th><th>Frais</th><th>P&L net</th><th>Rdt</th>
+      </tr></thead><tbody></tbody></table>
+      <p id="no-pos" class="muted" style="margin-top:8px">Aucune position ouverte.</p>
+    </section>
+
     <!-- Historique des trades -->
     <section class="card full">
       <h2>Historique des trades</h2>
@@ -118,9 +150,12 @@
       position_size_usd.value = s.position_size_usd; pos_val.textContent = s.position_size_usd;
       conviction_threshold.value = s.conviction_threshold; conv_val.textContent = s.conviction_threshold;
       min_spread.value = s.min_spread; spread_val.textContent = s.min_spread;
-      risk_per_trade.value = s.risk_per_trade; risk_val.textContent = s.risk_per_trade;
       scalp_enabled.checked = s.scalp_enabled;
       swing_enabled.checked = s.swing_enabled;
+      // Money management
+      starting_capital.value = s.starting_capital;
+      risk_per_trade.value = s.risk_per_trade; risk_val.textContent = (s.risk_per_trade*100).toFixed(1)+'%';
+      max_daily_drawdown.value = s.max_daily_drawdown; dd_val.textContent = (s.max_daily_drawdown*100).toFixed(0)+'%';
     }
 
     async function saveSettings() {
@@ -129,9 +164,19 @@
         position_size_usd: parseFloat(position_size_usd.value),
         conviction_threshold: parseFloat(conviction_threshold.value),
         min_spread: parseFloat(min_spread.value),
-        risk_per_trade: parseFloat(risk_per_trade.value),
       });
       alert('Paramètres appliqués en live.');
+    }
+
+    // Money management modifiable par l'utilisatrice elle-même.
+    async function saveMoney() {
+      await api('/api/settings','POST',{
+        starting_capital: parseFloat(starting_capital.value),
+        risk_per_trade: parseFloat(risk_per_trade.value),
+        max_daily_drawdown: parseFloat(max_daily_drawdown.value),
+      });
+      alert('Money management appliqué en live.');
+      refreshAll();
     }
 
     async function toggleApp() {
@@ -190,7 +235,40 @@
       });
     }
 
-    function refreshAll(){ loadStatus(); loadExchanges(); loadProposals(); loadTrades(); }
+    // Formatage monétaire avec signe et coloration (+ vert / - rouge).
+    function money(v){ if(v===null||v===undefined) return '—';
+      const s = (v>=0?'+':'') + v.toFixed(2) + ' $'; return s; }
+    function cls(v){ return v===null||v===undefined ? '' : (v>=0?'pos':'neg'); }
+
+    async function loadPositions() {
+      const s = await api('/api/positions');
+      // Tuiles de synthèse : mise de départ, P&L réel, rendement, frais.
+      const totalNet = s.total_net_pnl, ret = s.return_pct;
+      document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="k-label">Mise de départ</div><div class="k-value">${s.starting_capital.toFixed(0)} $</div></div>
+        <div class="kpi"><div class="k-label">Capital actuel (estimé)</div><div class="k-value">${s.current_equity.toFixed(2)} $</div></div>
+        <div class="kpi"><div class="k-label">P&L net total (réel)</div><div class="k-value ${cls(totalNet)}">${money(totalNet)}</div></div>
+        <div class="kpi"><div class="k-label">Rendement / mise</div><div class="k-value ${cls(ret)}">${(ret*100).toFixed(2)} %</div></div>
+        <div class="kpi"><div class="k-label">Réalisé (fermé)</div><div class="k-value ${cls(s.realized_net_pnl)}">${money(s.realized_net_pnl)}</div></div>
+        <div class="kpi"><div class="k-label">Latent (ouvert)</div><div class="k-value ${cls(s.unrealized_net_pnl)}">${money(s.unrealized_net_pnl)}</div></div>
+        <div class="kpi"><div class="k-label">Frais cumulés</div><div class="k-value neg">-${s.total_fees.toFixed(2)} $</div></div>
+        <div class="kpi"><div class="k-label">Positions ouvertes</div><div class="k-value">${s.open_count}</div></div>`;
+
+      const tb = document.querySelector('#positions-table tbody'); tb.innerHTML='';
+      (s.positions||[]).forEach(p=>{
+        const tr=document.createElement('tr');
+        const rdt = p.return_pct===null?'—':`<span class="${cls(p.return_pct)}">${(p.return_pct*100).toFixed(2)}%</span>`;
+        tr.innerHTML=`<td>${p.symbol}</td><td>${p.app}</td><td>${p.side}</td><td>${p.amount.toFixed(4)}</td>
+          <td>${p.entry_price.toFixed(2)}</td><td>${p.current_price!=null?p.current_price.toFixed(2):'—'}</td>
+          <td class="${cls(p.gross_pnl)}">${money(p.gross_pnl)}</td>
+          <td class="neg">${p.fees!=null?'-'+p.fees.toFixed(2)+' $':'—'}</td>
+          <td class="${cls(p.net_pnl)}">${money(p.net_pnl)}</td><td>${rdt}</td>`;
+        tb.appendChild(tr);
+      });
+      document.getElementById('no-pos').style.display = (s.open_count>0)?'none':'block';
+    }
+
+    function refreshAll(){ loadStatus(); loadExchanges(); loadProposals(); loadPositions(); loadTrades(); }
     loadSettings(); refreshAll();
     setInterval(refreshAll, 5000); // P&L / positions rafraîchis toutes les 5 s
   </script>

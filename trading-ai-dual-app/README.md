@@ -92,10 +92,16 @@ les rapports (Sharpe, win rate, max drawdown, profit factor). Détails :
 ## 🖥️ Dashboard
 
 - Sliders/champs modifiables **en live** (paires, taille de position, seuil
-  de conviction, spread min, risque par trade).
+  de conviction, spread min).
+- Panneau **Money management** piloté par l'utilisatrice : **mise de départ**,
+  **risque par trade** (borné à 10 %), **drawdown journalier max** (kill-switch).
+- Panneau **Performance réelle (frais déduits)** : par position → P&L brut,
+  frais, **P&L net (gain réel)**, rendement ; synthèse globale → capital
+  actuel, **rendement en % sur la mise de départ**, réalisé vs latent, frais
+  cumulés.
 - Interrupteurs **on/off par application et par exchange**.
-- **P&L temps réel**, état des positions, historique des trades.
-- Confirmation du passage **LIVE** et réarmement du **kill-switch**.
+- Historique des trades, confirmation du passage **LIVE**, réarmement du
+  **kill-switch**.
 
 ---
 

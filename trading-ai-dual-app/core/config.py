@@ -91,6 +91,9 @@ class Settings:
         default_factory=lambda: _env_list("ACTIVE_PAIRS", ["BTC/USDT", "ETH/USDT"])
     )
     position_size_usd: float = field(default_factory=lambda: _env_float("POSITION_SIZE_USD", 100.0))
+    # Mise de départ : capital de référence pour calculer le rendement réel
+    # affiché dans le dashboard (P&L en % de la mise initiale).
+    starting_capital: float = field(default_factory=lambda: _env_float("STARTING_CAPITAL", 5000.0))
     conviction_threshold: float = field(
         default_factory=lambda: _env_float("CONVICTION_THRESHOLD", 0.7)
     )
