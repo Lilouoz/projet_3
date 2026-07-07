@@ -53,6 +53,23 @@ trading-ai-dual-app/
 Autre garde-fou : **position sizing à 2 %** du capital par trade
 (`RISK_PER_TRADE`, modifiable en live).
 
+### 💸 Rentabilité nette adaptative (fee-aware)
+
+Chaque ordre passe par un **filtre de rentabilité** qui s'adapte en temps réel
+au **modèle de frais de chaque plateforme** :
+
+- Frais récupérés automatiquement via CCXT à la connexion, ou saisis
+  (`<EXCHANGE>_TAKER_FEE`), ou par défaut indicatif.
+- **Forfait illimité** sans frais par trade : `<EXCHANGE>_FLAT_FEE=true` →
+  coût marginal nul, il suffit que le trade soit **positif** (idéal
+  micro-trading).
+- Filtre : un trade n'est exécuté que si `gain attendu − frais aller-retour
+  ≥ marge nette min.` (`MIN_NET_MARGIN`, `0` = juste être positif).
+- Le dashboard évalue **en direct et par plateforme** l'edge net et désigne
+  la plus avantageuse (`core/exchange.py::evaluate_profitability`).
+- Le **backtest** est fee-aware (`--fee`) pour valider la rentabilité NETTE
+  sur 12 mois avant le live.
+
 ---
 
 ## 🚀 Démarrage rapide

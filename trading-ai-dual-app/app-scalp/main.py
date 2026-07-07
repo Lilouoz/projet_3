@@ -85,26 +85,44 @@ async def _scan_symbol(connector, symbol: str) -> None:
     risk_manager.update_equity(equity)
 
     try:
-        # Stop-loss serré pour le scalp (0.3 % par défaut) — toujours présent.
+        # Filtre fee-aware : sur un scalp, le gain brut espéré ≈ le spread
+        # capturé. Le risk management refusera l'ordre si ce spread ne couvre
+        # pas l'aller-retour des frais + la marge nette minimale.
         plan = risk_manager.build_order_plan(
             symbol=symbol,
             side=side,
             entry_price=entry_price,
             equity=equity,
-            stop_loss_pct=0.003,
+            stop_loss_pct=0.003,  # stop serré (0.3 %) — toujours présent
+            expected_gross_return=spread,
+            fee_rate=connector.fee_rate,
         )
         connector.place_order(plan, app="scalp", order_type="limit")
         logger.info(
-            "[SCALP] %s %s @ %.4f (spread=%.4f imbalance=%.2f)",
-            side, symbol, entry_price, spread, imbalance,
+            "[SCALP] %s %s @ %.4f (spread=%.4f imbalance=%.2f frais=%.4f)",
+            side, symbol, entry_price, spread, imbalance, connector.fee_rate,
         )
     except RiskViolation as exc:
-        logger.warning("Ordre scalp refusé: %s", exc)
+        # Inclut le cas « spread insuffisant pour couvrir les frais ».
+        logger.info("Trade scalp non retenu: %s", exc)
+
+
+def _refresh_fees_on_start() -> None:
+    """
+    Récupère les frais réels de chaque exchange activé au démarrage.
+
+    Ainsi le filtre de rentabilité travaille immédiatement sur les vrais
+    coûts de la plateforme, pas sur une estimation.
+    """
+    for conn in registry.enabled_connectors():
+        conn.refresh_real_fees()
+        logger.info("[%s] frais taker utilisés: %.4f%%", conn.name, conn.fee_rate * 100)
 
 
 async def _run_async() -> None:
     """Boucle asynchrone principale de l'app-scalp."""
     logger.info("Démarrage app-scalp (mode=%s)", "LIVE" if settings.live_trading else "PAPER")
+    _refresh_fees_on_start()
 
     while True:
         # Interrupteurs et paramètres relus à chaque tour (modifiables en live).

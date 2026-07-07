@@ -83,7 +83,21 @@
       <label>Drawdown journalier max (kill-switch) : <span id="dd_val" class="val"></span></label>
       <input id="max_daily_drawdown" type="range" min="0.01" max="0.20" step="0.01" oninput="dd_val.textContent=(this.value*100).toFixed(0)+'%'" />
 
+      <label>Marge nette min. après frais : <span id="margin_val" class="val"></span> <span class="muted">(0 = juste être positif)</span></label>
+      <input id="min_net_margin" type="range" min="0" max="0.005" step="0.0001" oninput="margin_val.textContent=(this.value*100).toFixed(2)+'%'" />
+
       <div style="margin-top:16px"><button onclick="saveMoney()">💾 Appliquer le money management</button></div>
+    </section>
+
+    <!-- Évaluateur de rentabilité en direct (adaptatif par plateforme) -->
+    <section class="card">
+      <h2>⚖️ Rentabilité en direct (par plateforme)</h2>
+      <p class="muted">Pour un gain brut attendu donné, l'app calcule instantanément l'edge net de chaque plateforme selon son modèle de frais (forfait / réels / défaut) et désigne la plus avantageuse.</p>
+      <label>Gain brut attendu : <span id="eg_val" class="val"></span></label>
+      <input id="expected_gross" type="range" min="0.0001" max="0.01" step="0.0001" value="0.002"
+             oninput="eg_val.textContent=(this.value*100).toFixed(2)+'%'; loadEval()" />
+      <div id="eval-best" style="margin:10px 0; font-weight:600"></div>
+      <table id="eval-table"><thead><tr><th>Plateforme</th><th>Modèle frais</th><th>Frais A/R</th><th>Edge net</th><th>OK ?</th></tr></thead><tbody></tbody></table>
     </section>
 
     <!-- On/Off par app -->
@@ -157,6 +171,8 @@
       starting_capital.value = s.starting_capital;
       risk_per_trade.value = s.risk_per_trade; risk_val.textContent = (s.risk_per_trade*100).toFixed(1)+'%';
       max_daily_drawdown.value = s.max_daily_drawdown; dd_val.textContent = (s.max_daily_drawdown*100).toFixed(0)+'%';
+      min_net_margin.value = s.min_net_margin; margin_val.textContent = (s.min_net_margin*100).toFixed(2)+'%';
+      eg_val.textContent = (parseFloat(expected_gross.value)*100).toFixed(2)+'%';
     }
 
     async function saveSettings() {
@@ -175,9 +191,30 @@
         starting_capital: parseFloat(starting_capital.value),
         risk_per_trade: parseFloat(risk_per_trade.value),
         max_daily_drawdown: parseFloat(max_daily_drawdown.value),
+        min_net_margin: parseFloat(min_net_margin.value),
       });
       alert('Money management appliqué en live.');
       refreshAll();
+    }
+
+    // Évaluateur de rentabilité instantané, adaptatif par plateforme.
+    async function loadEval() {
+      const eg = parseFloat(expected_gross.value);
+      const r = await api('/api/profitability-eval?expected_gross='+eg);
+      const best = document.getElementById('eval-best');
+      best.innerHTML = r.best
+        ? `✅ Plus avantageuse : <span class="pos">${r.best}</span>`
+        : `<span class="neg">❌ Aucune plateforme rentable à ce niveau de gain</span>`;
+      const tb = document.querySelector('#eval-table tbody'); tb.innerHTML='';
+      (r.evaluations||[]).forEach(e=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${e.exchange}</td><td class="muted">${e.fee_model}</td>
+          <td>${(e.roundtrip_fees*100).toFixed(3)}%</td>
+          <td class="${e.net_edge>=0?'pos':'neg'}">${(e.net_edge*100).toFixed(3)}%</td>
+          <td>${e.profitable?'✅':'—'}</td>`;
+        tb.appendChild(tr);
+      });
+      if(!(r.evaluations||[]).length) tb.innerHTML='<tr><td colspan="5" class="muted">Aucune plateforme activée.</td></tr>';
     }
 
     async function toggleApp() {
@@ -278,7 +315,7 @@
       document.getElementById('no-pos').style.display = (s.open_count>0)?'none':'block';
     }
 
-    function refreshAll(){ loadStatus(); loadExchanges(); loadProposals(); loadPositions(); loadTrades(); }
+    function refreshAll(){ loadStatus(); loadExchanges(); loadProposals(); loadPositions(); loadTrades(); loadEval(); }
     loadSettings(); refreshAll();
     setInterval(refreshAll, 5000); // P&L / positions rafraîchis toutes les 5 s
   </script>

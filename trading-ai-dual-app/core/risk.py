@@ -23,6 +23,7 @@ from typing import Optional
 
 from .config import settings
 from .logger import get_logger, send_alert
+from .profitability import check_profitability
 
 logger = get_logger("risk")
 
@@ -129,6 +130,8 @@ class RiskManager:
         entry_price: float,
         equity: float,
         stop_loss_pct: float,
+        expected_gross_return: float | None = None,
+        fee_rate: float | None = None,
     ) -> OrderPlan:
         """
         Construit un plan d'ordre respectant toutes les règles de risque.
@@ -139,12 +142,17 @@ class RiskManager:
             entry_price: prix d'entrée estimé.
             equity: capital total disponible en devise de cotation.
             stop_loss_pct: distance du stop en fraction du prix (ex 0.01 = 1%).
+            expected_gross_return: gain brut attendu en fraction (optionnel).
+                Si fourni avec `fee_rate`, le trade est refusé s'il n'est pas
+                rentable une fois l'aller-retour des frais déduit (fee-aware).
+            fee_rate: frais taker de la plateforme en fraction (optionnel).
 
         Returns:
             OrderPlan avec quantité et stop-loss calculés.
 
         Raises:
-            RiskViolation: si une règle non négociable est enfreinte.
+            RiskViolation: si une règle non négociable est enfreinte, ou si le
+                trade n'est pas rentable net de frais.
         """
         with self._lock:
             # Règle n°3 : aucun nouvel ordre si le kill-switch est armé.
@@ -157,6 +165,17 @@ class RiskManager:
             if stop_loss_pct <= 0:
                 # Règle n°4 : pas de stop => pas d'ordre.
                 raise RiskViolation("Stop-loss obligatoire : stop_loss_pct doit être > 0.")
+
+            # Filtre de rentabilité fee-aware : on ne prend le trade que si le
+            # gain attendu couvre les frais A/R + la marge nette minimale.
+            if expected_gross_return is not None and fee_rate is not None:
+                check = check_profitability(
+                    expected_gross_return=expected_gross_return,
+                    fee_rate=fee_rate,
+                    min_margin=settings.min_net_margin,
+                )
+                if not check.profitable:
+                    raise RiskViolation(check.reason())
 
             # 1) Montant risqué = 2 % du capital (paramétrable en live).
             risk_usd = equity * settings.risk_per_trade

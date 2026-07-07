@@ -63,6 +63,11 @@ class ExchangeConfig:
     # connecté, sinon on retombe sur une valeur par défaut indicative.
     taker_fee: float = 0.0
     maker_fee: float = 0.0
+    # Forfait « illimité » / sans frais par trade : si True, le coût marginal
+    # par trade est considéré comme nul (le filtre de rentabilité exige alors
+    # simplement que le trade soit positif). Utile pour du micro-trading sous
+    # abonnement où les frais ne sont pas prélevés à chaque ordre.
+    flat_fee: bool = False
 
     @property
     def has_credentials(self) -> bool:
@@ -103,6 +108,15 @@ class Settings:
         default_factory=lambda: _env_float("CONVICTION_THRESHOLD", 0.7)
     )
     min_spread: float = field(default_factory=lambda: _env_float("MIN_SPREAD", 0.0005))
+    # ---- Rentabilité nette (fee-aware) --------------------------------
+    # Marge nette minimale exigée APRÈS déduction des frais réels.
+    # Défaut 0.0 = « juste être positif » : il suffit que le gain attendu
+    # couvre les frais (nuls si forfait illimité). Augmente cette valeur si
+    # tu veux exiger un profit net minimal par trade.
+    min_net_margin: float = field(default_factory=lambda: _env_float("MIN_NET_MARGIN", 0.0))
+    # Ratio gain/risque supposé (cible de profit = ratio × distance du stop),
+    # utilisé pour estimer le gain brut attendu d'un trade swing.
+    reward_risk_ratio: float = field(default_factory=lambda: _env_float("REWARD_RISK_RATIO", 1.5))
 
     # ---- Interrupteurs on/off par app ---------------------------------
     scalp_enabled: bool = field(default_factory=lambda: _env_bool("SCALP_ENABLED", False))
@@ -176,6 +190,8 @@ def load_exchanges() -> Dict[str, ExchangeConfig]:
             # Frais réels optionnels : renseignés une fois la plateforme connue.
             taker_fee=_env_float(f"{prefix}_TAKER_FEE", 0.0),
             maker_fee=_env_float(f"{prefix}_MAKER_FEE", 0.0),
+            # Forfait sans frais par trade (abonnement illimité).
+            flat_fee=_env_bool(f"{prefix}_FLAT_FEE", False),
         )
     return exchanges
 

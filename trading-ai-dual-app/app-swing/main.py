@@ -71,6 +71,10 @@ def _execute(connector, symbol: str, analysis: ClaudeAnalysis, entry_price: floa
     risk_manager.update_equity(equity)  # met à jour le drawdown / kill-switch
 
     side = "buy" if analysis.action == Action.BUY else "sell"
+    # Gain brut espéré ≈ distance du stop × ratio gain/risque (cible de
+    # profit). Le risk management refuse le trade s'il n'est pas rentable
+    # une fois l'aller-retour des frais déduit (fee-aware).
+    expected_gross = analysis.stop_loss_pct * settings.reward_risk_ratio
     try:
         plan = risk_manager.build_order_plan(
             symbol=symbol,
@@ -78,11 +82,14 @@ def _execute(connector, symbol: str, analysis: ClaudeAnalysis, entry_price: floa
             entry_price=entry_price,
             equity=equity,
             stop_loss_pct=analysis.stop_loss_pct,
+            expected_gross_return=expected_gross,
+            fee_rate=connector.fee_rate,
         )
         connector.place_order(plan, app="swing", order_type="market")
         logger.info("Trade swing exécuté %s %s (conviction %.2f)", side, symbol, analysis.conviction)
     except RiskViolation as exc:
-        logger.warning("Ordre refusé par le risk management: %s", exc)
+        # Inclut le cas « gain attendu insuffisant face aux frais ».
+        logger.info("Trade swing non retenu: %s", exc)
 
 
 def process_symbol(connector, symbol: str, analyzer: MarketAnalyzer) -> None:
@@ -127,11 +134,19 @@ def process_symbol(connector, symbol: str, analyzer: MarketAnalyzer) -> None:
         )
 
 
+def _refresh_fees_on_start() -> None:
+    """Récupère les frais réels de chaque exchange activé au démarrage."""
+    for conn in registry.enabled_connectors():
+        conn.refresh_real_fees()
+        logger.info("[%s] frais taker utilisés: %.4f%%", conn.name, conn.fee_rate * 100)
+
+
 def run() -> None:
     """Boucle principale de l'app-swing."""
     analyzer = MarketAnalyzer()
     logger.info("Démarrage app-swing (intervalle %ss, mode=%s)",
                 LOOP_INTERVAL_S, "LIVE" if settings.live_trading else "PAPER")
+    _refresh_fees_on_start()
 
     while True:
         start = time.monotonic()

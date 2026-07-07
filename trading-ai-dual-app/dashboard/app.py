@@ -202,6 +202,18 @@ def status():
     }
 
 
+@app.get("/api/profitability-eval")
+def profitability_eval(expected_gross: float = 0.002):
+    """
+    Évaluation instantanée de la rentabilité par plateforme.
+
+    Pour un gain brut attendu donné (fraction, ex. 0.002 = 0,2 %), calcule en
+    direct l'edge net de chaque exchange activé selon son modèle de frais
+    (forfait / réels / défaut) et désigne le plus avantageux.
+    """
+    return registry.evaluate_profitability(expected_gross)
+
+
 def _price_lookup(exchange: str, symbol: str):
     """Récupère le dernier prix d'une paire pour valoriser une position."""
     conn = registry.get(exchange)

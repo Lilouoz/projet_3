@@ -68,8 +68,22 @@ def download_data(pairs: list[str], timerange: str, timeframe: str, exchange: st
     return _run(cmd)
 
 
-def run_backtest(strategy: str, pairs: list[str], timerange: str, timeframe: str) -> int:
-    """Lance le backtest Freqtrade sur la stratégie fournie."""
+def run_backtest(
+    strategy: str,
+    pairs: list[str],
+    timerange: str,
+    timeframe: str,
+    fee: float | None = None,
+) -> int:
+    """
+    Lance le backtest Freqtrade sur la stratégie fournie.
+
+    Args:
+        fee: frais réels par transaction (fraction, ex. 0.001). Injecté dans
+            Freqtrade via `--fee` pour que les métriques reflètent le coût
+            réel et valident la rentabilité NETTE (fee-aware). Mettre 0 pour
+            un forfait sans frais par trade.
+    """
     cmd = [
         sys.executable, "-m", "freqtrade", "backtesting",
         "--config", str(CONFIG),
@@ -81,6 +95,9 @@ def run_backtest(strategy: str, pairs: list[str], timerange: str, timeframe: str
         "--export", "trades",
         "--export-filename", str(RESULTS_DIR / f"{strategy}_{timerange}"),
     ]
+    # Frais appliqués à l'achat ET à la vente par Freqtrade (aller-retour).
+    if fee is not None:
+        cmd += ["--fee", str(fee)]
     return _run(cmd)
 
 
@@ -136,6 +153,9 @@ def main() -> int:
     parser.add_argument("--timeframe", default="5m")
     parser.add_argument("--exchange", default="binance", choices=["binance", "cryptocom"])
     parser.add_argument("--skip-download", action="store_true")
+    parser.add_argument("--fee", type=float, default=None,
+                        help="Frais réels par transaction (ex. 0.001). 0 pour un forfait "
+                             "sans frais. Rend le backtest fee-aware (rentabilité nette).")
     parser.add_argument("--authorize", action="store_true",
                         help="Marque la stratégie comme autorisée en live si le backtest réussit")
     args = parser.parse_args()
@@ -148,7 +168,7 @@ def main() -> int:
             print("Échec du téléchargement des données.", file=sys.stderr)
             return 1
 
-    if run_backtest(args.strategy, args.pairs, timerange, args.timeframe) != 0:
+    if run_backtest(args.strategy, args.pairs, timerange, args.timeframe, fee=args.fee) != 0:
         print("Le backtest a échoué.", file=sys.stderr)
         return 1
 

@@ -80,6 +80,9 @@ class ExchangeConnector:
         Astuce : appelle `refresh_real_fees()` après connexion pour récupérer
         automatiquement les frais réels via CCXT (option 1 sans saisie).
         """
+        # Forfait illimité / sans frais par trade : coût marginal nul.
+        if self.config.flat_fee:
+            return 0.0
         if self.config.taker_fee and self.config.taker_fee > 0:
             return self.config.taker_fee
         return _TAKER_FEES.get(self.name, DEFAULT_TAKER_FEE)
@@ -95,6 +98,10 @@ class ExchangeConnector:
         Returns:
             Le taux taker réel récupéré, ou None si indisponible.
         """
+        # Forfait sans frais par trade : rien à récupérer, coût marginal nul.
+        if self.config.flat_fee:
+            logger.info("[%s] Forfait sans frais par trade — coût marginal 0.", self.name)
+            return 0.0
         client = self.connect()
         if client is None:
             return None
@@ -329,6 +336,73 @@ class ExchangeRegistry:
     def enabled_connectors(self) -> List[ExchangeConnector]:
         """Liste des connecteurs dont l'exchange est activé (togglable live)."""
         return [c for c in self._connectors.values() if c.config.enabled]
+
+    def evaluate_profitability(
+        self,
+        expected_gross_return: float,
+        min_margin: Optional[float] = None,
+    ) -> dict:
+        """
+        Évalue EN DIRECT la rentabilité d'un trade sur chaque plateforme.
+
+        Pour un même gain brut attendu, chaque exchange a un coût différent
+        selon son modèle de frais : forfait sans frais par trade (coût nul),
+        frais réels du compte, ou valeur par défaut. Cette méthode calcule
+        instantanément l'edge net par plateforme et désigne la plus
+        avantageuse (« la plus adaptable »).
+
+        Args:
+            expected_gross_return: gain brut attendu en fraction (ex. 0.002).
+            min_margin: marge nette minimale exigée (défaut : settings).
+
+        Returns:
+            dict avec `best` (nom de l'exchange le plus rentable ou None) et
+            `evaluations` (liste triée par edge net décroissant), chaque entrée
+            précisant le modèle de frais utilisé.
+        """
+        from .config import settings as _settings
+        from .profitability import check_profitability
+
+        margin = _settings.min_net_margin if min_margin is None else min_margin
+        evaluations = []
+        for conn in self.enabled_connectors():
+            fee = conn.fee_rate
+            # Modèle de frais retenu pour cette plateforme (traçabilité).
+            if conn.config.flat_fee:
+                model = "forfait (0 frais/trade)"
+            elif conn.config.taker_fee and conn.config.taker_fee > 0:
+                model = "frais réels du compte"
+            else:
+                model = "frais par défaut (indicatif)"
+            chk = check_profitability(expected_gross_return, fee, margin)
+            evaluations.append({
+                "exchange": conn.name,
+                "fee_rate": fee,
+                "fee_model": model,
+                "roundtrip_fees": chk.roundtrip_fees,
+                "net_edge": chk.net_edge,
+                "profitable": chk.profitable,
+            })
+
+        # Tri par edge net décroissant : la plateforme la plus rentable en tête.
+        evaluations.sort(key=lambda e: e["net_edge"], reverse=True)
+        best = next((e["exchange"] for e in evaluations if e["profitable"]), None)
+        return {
+            "expected_gross_return": expected_gross_return,
+            "min_margin": margin,
+            "best": best,
+            "evaluations": evaluations,
+        }
+
+    def best_connector_for(
+        self,
+        expected_gross_return: float,
+    ) -> Optional[ExchangeConnector]:
+        """Retourne le connecteur le plus rentable pour ce trade (ou None)."""
+        result = self.evaluate_profitability(expected_gross_return)
+        if result["best"] is None:
+            return None
+        return self.get(result["best"])
 
     def all(self) -> Dict[str, ExchangeConnector]:
         """Retourne tous les connecteurs, activés ou non."""
