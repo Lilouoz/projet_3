@@ -1,0 +1,166 @@
+"""
+app-scalp/main.py
+=================
+Application 1 — Scalping haute fréquence.
+
+Principe :
+  - Boucle asynchrone qui suit le carnet d'ordres (orderbook) via websocket
+    CCXT Pro si disponible, sinon polling REST rapide en repli.
+  - Détection de micro-spreads (écart bid/ask exploitable au-delà du spread
+    minimal paramétrable) et de momentum court terme (déséquilibre du carnet).
+  - Exécution automatique selon les paramètres, TOUJOURS via le risk
+    management (sizing 2 %, stop-loss attaché, kill-switch).
+
+Toutes les règles non négociables s'appliquent : paper par défaut,
+paramètres relus en direct, stop-loss obligatoire, kill-switch global.
+"""
+
+from __future__ import annotations
+
+import asyncio
+
+from core import decision_engine, get_logger, registry, risk_manager, settings, TradeContext
+
+logger = get_logger("app-scalp")
+
+# Fréquence de rafraîchissement du carnet en mode polling REST (repli).
+POLL_INTERVAL_S = 1.0
+
+
+def _orderbook_signal(order_book: dict) -> tuple[str | None, float, float]:
+    """
+    Analyse le carnet d'ordres et renvoie (side, spread, imbalance).
+
+    - spread : (ask - bid) / bid, l'écart relatif.
+    - imbalance : déséquilibre des volumes bid vs ask sur le top du carnet,
+      dans [-1, 1] (positif => pression acheteuse => momentum haussier).
+
+    Retourne un `side` ('buy'/'sell') si une opportunité est détectée, sinon
+    None. On n'entre QUE si le spread dépasse le minimum paramétrable
+    (sinon les frais mangent le gain).
+    """
+    bids = order_book.get("bids") or []
+    asks = order_book.get("asks") or []
+    if not bids or not asks:
+        return None, 0.0, 0.0
+
+    best_bid = bids[0][0]
+    best_ask = asks[0][0]
+    spread = (best_ask - best_bid) / best_bid if best_bid else 0.0
+
+    # Déséquilibre sur les 5 premiers niveaux du carnet.
+    bid_vol = sum(v for _, v in bids[:5])
+    ask_vol = sum(v for _, v in asks[:5])
+    total = bid_vol + ask_vol
+    imbalance = (bid_vol - ask_vol) / total if total else 0.0
+
+    # Spread trop faible => pas d'opportunité rentable.
+    if spread < settings.min_spread:
+        return None, spread, imbalance
+
+    # Momentum court : le sens suit le déséquilibre du carnet.
+    if imbalance > 0.2:
+        return "buy", spread, imbalance
+    if imbalance < -0.2:
+        return "sell", spread, imbalance
+    return None, spread, imbalance
+
+
+async def _scan_symbol(connector, symbol: str) -> None:
+    """Analyse une paire une fois et exécute si opportunité + conditions OK."""
+    order_book = connector.fetch_order_book(symbol, limit=20)
+    if not order_book:
+        return
+
+    side, spread, imbalance = _orderbook_signal(order_book)
+    if side is None:
+        return
+
+    best_bid = order_book["bids"][0][0]
+    best_ask = order_book["asks"][0][0]
+    entry_price = best_ask if side == "buy" else best_bid
+
+    equity = connector.fetch_equity()
+    risk_manager.update_equity(equity)
+
+    # ZÉRO LLM dans la boucle rapide (latence incompatible avec le scalping).
+    # Le signal du carnet EST la confirmation technique déterministe. On route
+    # malgré tout par le moteur de décision (principe fondateur) : il valide
+    # sizing, stop, exposition et rentabilité nette (le spread doit couvrir
+    # l'aller-retour des frais).
+    ctx = TradeContext(
+        symbol=symbol, side=side, entry_price=entry_price, equity=equity,
+        stop_loss_pct=0.003,                       # stop serré 0.3 % — toujours présent
+        strategy="scalp",
+        conviction=settings.conviction_threshold,  # le déséquilibre atteint le seuil
+        technical_confirmation=True,               # le carnet est le signal technique
+        expected_gross_return=spread,              # gain brut espéré ≈ spread capturé
+        fee_rate=connector.fee_rate, source="scalp",
+    )
+    decision = decision_engine.evaluate(ctx)
+    if decision.approved and decision.plan is not None:
+        connector.place_order(decision.plan, app="scalp", order_type="limit")
+        logger.info("[SCALP] %s %s @ %.4f (spread=%.4f imbalance=%.2f frais=%.4f)",
+                    side, symbol, entry_price, spread, imbalance, connector.fee_rate)
+    else:
+        logger.debug("Trade scalp non retenu: %s", "; ".join(decision.reasons))
+
+
+def _refresh_fees_on_start() -> None:
+    """
+    Récupère les frais réels de chaque exchange activé au démarrage.
+
+    Ainsi le filtre de rentabilité travaille immédiatement sur les vrais
+    coûts de la plateforme, pas sur une estimation.
+    """
+    for conn in registry.enabled_connectors():
+        conn.refresh_real_fees()
+        logger.info("[%s] frais taker utilisés: %.4f%%", conn.name, conn.fee_rate * 100)
+
+
+async def _run_async() -> None:
+    """Boucle asynchrone principale de l'app-scalp."""
+    logger.info("Démarrage app-scalp (mode=%s)", "LIVE" if settings.live_trading else "PAPER")
+    _refresh_fees_on_start()
+
+    while True:
+        # Interrupteurs et paramètres relus à chaque tour (modifiables en live).
+        if not settings.scalp_enabled:
+            logger.info("app-scalp désactivée (scalp_enabled=false). En veille.")
+            await asyncio.sleep(5)
+            continue
+        if settings.kill_switch:
+            logger.warning("Kill-switch actif : scalp en pause.")
+            await asyncio.sleep(5)
+            continue
+
+        connector = None
+        enabled = registry.enabled_connectors()
+        if enabled:
+            connector = enabled[0]
+
+        if connector is None:
+            logger.warning("Aucun exchange activé pour l'app-scalp.")
+            await asyncio.sleep(5)
+            continue
+
+        # Scan concurrent de toutes les paires actives.
+        tasks = [_scan_symbol(connector, sym) for sym in list(settings.active_pairs)]
+        try:
+            await asyncio.gather(*tasks)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Erreur dans la boucle scalp: %s", exc)
+
+        await asyncio.sleep(POLL_INTERVAL_S)
+
+
+def run() -> None:
+    """Point d'entrée synchrone (lance la boucle asyncio)."""
+    try:
+        asyncio.run(_run_async())
+    except KeyboardInterrupt:
+        logger.info("Arrêt de l'app-scalp (Ctrl+C).")
+
+
+if __name__ == "__main__":
+    run()

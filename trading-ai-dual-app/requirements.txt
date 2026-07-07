@@ -1,0 +1,37 @@
+# ============================================================================
+# Dépendances Python — trading-ai-dual-app
+# Versions épinglées de façon souple (compatibles Python 3.11+).
+# ============================================================================
+
+# ---- Connecteurs exchange (multi-exchange unifié) ----
+ccxt>=4.2.0
+
+# ---- Configuration & environnement ----
+python-dotenv>=1.0.0
+
+# ---- Analyse IA (app-swing + auto-update) ----
+anthropic>=0.40.0
+
+# ---- Websockets (app-scalp haute fréquence) ----
+websockets>=12.0
+
+# ---- Dashboard web ----
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+jinja2>=3.1.0
+python-multipart>=0.0.9
+
+# ---- Data / indicateurs ----
+pandas>=2.1.0
+numpy>=1.26.0
+
+# ---- HTTP (alertes, scan GitHub, whale-tracker Hyperliquid/on-chain) ----
+# Le whale-tracker lit Hyperliquid, Etherscan/Polygonscan et les RPC publics
+# via de simples requêtes HTTP/JSON-RPC : pas besoin de web3.py.
+requests>=2.31.0
+
+# ---- Backtesting : Freqtrade installé comme dépendance (NE PAS réécrire) ----
+# Freqtrade embarque son propre moteur, ses stratégies et ses rapports.
+# Installé séparément car il tire de lourdes dépendances système (TA-Lib).
+# Voir backtest/README.md pour l'installation détaillée.
+freqtrade>=2024.1

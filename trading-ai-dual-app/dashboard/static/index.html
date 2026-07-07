@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading AI Dual App — Dashboard</title>
+  <style>
+    /* Interface simple, lisible, sans dépendance externe (CSP-friendly). */
+    :root { --bg:#0f1720; --card:#1a2432; --accent:#3ba776; --danger:#e05252; --text:#e6edf3; --muted:#8b98a5; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); }
+    header { padding:16px 24px; background:var(--card); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+    header h1 { font-size:18px; margin:0; }
+    .badge { padding:4px 10px; border-radius:12px; font-size:13px; font-weight:600; }
+    .badge.paper { background:#274; color:#cfe; }
+    .badge.live { background:#a33; color:#fee; }
+    .badge.kill { background:var(--danger); color:#fff; }
+    main { padding:24px; display:grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
+    .card { background:var(--card); border-radius:12px; padding:20px; }
+    .card h2 { margin:0 0 14px; font-size:15px; color:var(--accent); }
+    label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+    input[type=text], input[type=number] { width:100%; padding:8px; border-radius:6px; border:1px solid #33404f; background:#0d141c; color:var(--text); }
+    input[type=range] { width:100%; }
+    .row { display:flex; align-items:center; gap:10px; justify-content:space-between; margin:8px 0; }
+    button { background:var(--accent); color:#04140c; border:none; padding:9px 14px; border-radius:6px; font-weight:600; cursor:pointer; }
+    button.danger { background:var(--danger); color:#fff; }
+    button.ghost { background:transparent; border:1px solid #33404f; color:var(--text); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { text-align:left; padding:6px 8px; border-bottom:1px solid #26313f; }
+    th { color:var(--muted); font-weight:500; }
+    .switch { display:inline-flex; align-items:center; gap:6px; }
+    .val { color:var(--accent); font-weight:600; }
+    .muted { color:var(--muted); font-size:12px; }
+    .full { grid-column: 1 / -1; }
+    /* Tuiles de synthèse de performance */
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+    .kpi { background:#0d141c; border-radius:8px; padding:12px 14px; }
+    .kpi .k-label { font-size:12px; color:var(--muted); }
+    .kpi .k-value { font-size:20px; font-weight:700; margin-top:4px; }
+    .pos { color:var(--accent); } .neg { color:var(--danger); }
+    input[type=number] { width:100%; padding:8px; border-radius:6px; border:1px solid #33404f; background:#0d141c; color:var(--text); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚡ Trading AI Dual App</h1>
+    <span id="mode-badge" class="badge paper">PAPER</span>
+    <span id="kill-badge" class="badge" style="display:none"></span>
+    <span id="dd" class="muted"></span>
+    <button class="ghost" onclick="refreshAll()">↻ Rafraîchir</button>
+  </header>
+
+  <main>
+    <!-- Contrôles live -->
+    <section class="card">
+      <h2>Paramètres (modifiables en live)</h2>
+      <label>Paires actives (séparées par virgule)</label>
+      <input id="active_pairs" type="text" placeholder="BTC/USDT,ETH/USDT" />
+
+      <label>Taille de position (USD) : <span id="pos_val" class="val"></span></label>
+      <input id="position_size_usd" type="range" min="10" max="2000" step="10" oninput="pos_val.textContent=this.value" />
+
+      <label>Seuil de conviction (app-swing) : <span id="conv_val" class="val"></span></label>
+      <input id="conviction_threshold" type="range" min="0" max="1" step="0.05" oninput="conv_val.textContent=this.value" />
+
+      <label>Spread minimal (app-scalp) : <span id="spread_val" class="val"></span></label>
+      <input id="min_spread" type="range" min="0" max="0.005" step="0.0001" oninput="spread_val.textContent=this.value" />
+
+      <div style="margin-top:16px"><button onclick="saveSettings()">💾 Appliquer</button></div>
+    </section>
+
+    <!-- Money management (paramètres pilotés par l'utilisatrice) -->
+    <section class="card">
+      <h2>💰 Money management</h2>
+      <p class="muted">Ces réglages pilotent le risque et servent de base au calcul du rendement réel. Modifiables à tout moment.</p>
+
+      <label>Mise de départ (USD)</label>
+      <input id="starting_capital" type="number" min="0" step="100" placeholder="5000" />
+
+      <label>Risque par trade : <span id="risk_val" class="val"></span> (max 10 %)</label>
+      <input id="risk_per_trade" type="range" min="0.005" max="0.10" step="0.005" oninput="risk_val.textContent=(this.value*100).toFixed(1)+'%'" />
+
+      <label>Drawdown journalier max (kill-switch) : <span id="dd_val" class="val"></span></label>
+      <input id="max_daily_drawdown" type="range" min="0.01" max="0.20" step="0.01" oninput="dd_val.textContent=(this.value*100).toFixed(0)+'%'" />
+
+      <label>Marge nette min. après frais : <span id="margin_val" class="val"></span> <span class="muted">(0 = juste être positif)</span></label>
+      <input id="min_net_margin" type="range" min="0" max="0.005" step="0.0001" oninput="margin_val.textContent=(this.value*100).toFixed(2)+'%'" />
+
+      <h2 style="margin-top:18px">📐 Sizing Kelly & exposition</h2>
+      <label>Fraction de Kelly : <span id="kf_val" class="val"></span> <span class="muted">(0.5 = half-Kelly)</span></label>
+      <input id="kelly_fraction" type="range" min="0" max="1" step="0.05" oninput="kf_val.textContent=this.value" />
+
+      <label>Plafond par position : <span id="mpp_val" class="val"></span> <span class="muted">(défaut 6%)</span></label>
+      <input id="max_position_pct" type="range" min="0.005" max="0.20" step="0.005" oninput="mpp_val.textContent=(this.value*100).toFixed(1)+'%'" />
+
+      <label>Exposition totale max : <span id="mte_val" class="val"></span></label>
+      <input id="max_total_exposure_pct" type="range" min="0.05" max="3" step="0.05" oninput="mte_val.textContent=(this.value*100).toFixed(0)+'%'" />
+
+      <div style="margin-top:16px"><button onclick="saveMoney()">💾 Appliquer le money management</button></div>
+    </section>
+
+    <!-- Évaluateur de rentabilité en direct (adaptatif par plateforme) -->
+    <section class="card">
+      <h2>⚖️ Rentabilité en direct (par plateforme)</h2>
+      <p class="muted">Pour un gain brut attendu donné, l'app calcule instantanément l'edge net de chaque plateforme selon son modèle de frais (forfait / réels / défaut) et désigne la plus avantageuse.</p>
+      <label>Gain brut attendu : <span id="eg_val" class="val"></span></label>
+      <input id="expected_gross" type="range" min="0.0001" max="0.01" step="0.0001" value="0.002"
+             oninput="eg_val.textContent=(this.value*100).toFixed(2)+'%'; loadEval()" />
+      <div id="eval-best" style="margin:10px 0; font-weight:600"></div>
+      <table id="eval-table"><thead><tr><th>Plateforme</th><th>Modèle frais</th><th>Frais A/R</th><th>Edge net</th><th>OK ?</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <!-- On/Off par app -->
+    <section class="card">
+      <h2>Applications</h2>
+      <div class="row"><span>App Scalp (haute fréquence)</span>
+        <label class="switch"><input id="scalp_enabled" type="checkbox" onchange="toggleApp()"> on/off</label></div>
+      <div class="row"><span>App Swing (Claude, 5 min)</span>
+        <label class="switch"><input id="swing_enabled" type="checkbox" onchange="toggleApp()"> on/off</label></div>
+
+      <h2 style="margin-top:20px">Passage en LIVE</h2>
+      <p class="muted">Requiert LIVE_TRADING=true dans .env ET la confirmation ci-dessous (règle non négociable n°1).</p>
+      <div class="row">
+        <button class="danger" onclick="confirmLive(true)">Confirmer LIVE</button>
+        <button class="ghost" onclick="confirmLive(false)">Revenir en PAPER</button>
+      </div>
+      <div class="row"><button class="ghost" onclick="resetKill()">Réarmer après kill-switch</button></div>
+    </section>
+
+    <!-- Exchanges -->
+    <section class="card">
+      <h2>Exchanges</h2>
+      <table id="exchanges-table"><thead><tr><th>Exchange</th><th>Clés</th><th>Frais taker</th><th>Actif</th><th></th></tr></thead><tbody></tbody></table>
+      <p class="muted" style="margin-top:8px">Frais « compte » = tes frais réels (via .env ou récupérés). Sinon valeur par défaut indicative — clique ⟳ pour récupérer les vrais frais après connexion.</p>
+    </section>
+
+    <!-- Whale-tracker : copy-trading -->
+    <section class="card full">
+      <h2>🐋 Wallets suivis (copy-trading)</h2>
+      <div class="row" style="flex-wrap:wrap; gap:6px">
+        <input id="w_addr" type="text" placeholder="Adresse 0x… ou compte Hyperliquid" style="flex:2; min-width:220px" />
+        <input id="w_label" type="text" placeholder="Libellé" style="flex:1; min-width:100px" />
+        <select id="w_source" style="padding:8px; border-radius:6px; background:#0d141c; color:var(--text); border:1px solid #33404f">
+          <option value="hyperliquid">Hyperliquid</option>
+          <option value="onchain">On-chain</option>
+        </select>
+        <select id="w_chain" style="padding:8px; border-radius:6px; background:#0d141c; color:var(--text); border:1px solid #33404f">
+          <option value="ethereum">Ethereum</option>
+          <option value="polygon">Polygon</option>
+        </select>
+        <button onclick="addWallet()">➕ Suivre</button>
+        <button class="ghost" onclick="refreshWallets()">↻ Scores</button>
+      </div>
+      <table id="wallets-table" style="margin-top:12px"><thead><tr>
+        <th>Wallet</th><th>Source</th><th>Score (30j)</th><th>Positions</th><th>Actif</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+
+    <!-- Propositions manuelles -->
+    <section class="card">
+      <h2>Propositions à valider (app-swing)</h2>
+      <table id="proposals-table"><thead><tr><th>Paire</th><th>Action</th><th>Conv.</th><th>Raison</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <!-- Performance réelle : positions ouvertes + P&L net + rendement -->
+    <section class="card full">
+      <h2>📈 Performance réelle (frais déduits)</h2>
+      <div id="kpis" class="kpis"></div>
+      <table id="positions-table" style="margin-top:14px"><thead><tr>
+        <th>Paire</th><th>App</th><th>Sens</th><th>Qté</th><th>Entrée</th><th>Prix actuel</th>
+        <th>P&L brut</th><th>Frais</th><th>P&L net</th><th>Rdt</th>
+      </tr></thead><tbody></tbody></table>
+      <p id="no-pos" class="muted" style="margin-top:8px">Aucune position ouverte.</p>
+    </section>
+
+    <!-- Historique des trades -->
+    <section class="card full">
+      <h2>Historique des trades</h2>
+      <table id="trades-table"><thead><tr>
+        <th>Heure</th><th>App</th><th>Exchange</th><th>Paire</th><th>Sens</th><th>Qté</th><th>Prix</th><th>Stop</th><th>Mode</th><th>P&L</th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+  </main>
+
+  <script>
+    // Toutes les interactions passent par l'API FastAPI (core.settings).
+    async function api(path, method='GET', body=null) {
+      const opts = { method, headers: {'Content-Type':'application/json'} };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(path, opts);
+      return r.json();
+    }
+
+    async function loadSettings() {
+      const s = await api('/api/settings');
+      active_pairs.value = (s.active_pairs||[]).join(',');
+      position_size_usd.value = s.position_size_usd; pos_val.textContent = s.position_size_usd;
+      conviction_threshold.value = s.conviction_threshold; conv_val.textContent = s.conviction_threshold;
+      min_spread.value = s.min_spread; spread_val.textContent = s.min_spread;
+      scalp_enabled.checked = s.scalp_enabled;
+      swing_enabled.checked = s.swing_enabled;
+      // Money management
+      starting_capital.value = s.starting_capital;
+      risk_per_trade.value = s.risk_per_trade; risk_val.textContent = (s.risk_per_trade*100).toFixed(1)+'%';
+      max_daily_drawdown.value = s.max_daily_drawdown; dd_val.textContent = (s.max_daily_drawdown*100).toFixed(0)+'%';
+      min_net_margin.value = s.min_net_margin; margin_val.textContent = (s.min_net_margin*100).toFixed(2)+'%';
+      kelly_fraction.value = s.kelly_fraction; kf_val.textContent = s.kelly_fraction;
+      max_position_pct.value = s.max_position_pct; mpp_val.textContent = (s.max_position_pct*100).toFixed(1)+'%';
+      max_total_exposure_pct.value = s.max_total_exposure_pct; mte_val.textContent = (s.max_total_exposure_pct*100).toFixed(0)+'%';
+      eg_val.textContent = (parseFloat(expected_gross.value)*100).toFixed(2)+'%';
+    }
+
+    async function saveSettings() {
+      await api('/api/settings','POST',{
+        active_pairs: active_pairs.value.split(',').map(x=>x.trim()).filter(Boolean),
+        position_size_usd: parseFloat(position_size_usd.value),
+        conviction_threshold: parseFloat(conviction_threshold.value),
+        min_spread: parseFloat(min_spread.value),
+      });
+      alert('Paramètres appliqués en live.');
+    }
+
+    // Money management modifiable par l'utilisatrice elle-même.
+    async function saveMoney() {
+      await api('/api/settings','POST',{
+        starting_capital: parseFloat(starting_capital.value),
+        risk_per_trade: parseFloat(risk_per_trade.value),
+        max_daily_drawdown: parseFloat(max_daily_drawdown.value),
+        min_net_margin: parseFloat(min_net_margin.value),
+        kelly_fraction: parseFloat(kelly_fraction.value),
+        max_position_pct: parseFloat(max_position_pct.value),
+        max_total_exposure_pct: parseFloat(max_total_exposure_pct.value),
+      });
+      alert('Money management appliqué en live.');
+      refreshAll();
+    }
+
+    // ---- Whale-tracker (copy-trading) ----
+    async function loadWallets() {
+      const r = await api('/api/wallets');
+      const tb = document.querySelector('#wallets-table tbody'); tb.innerHTML='';
+      (r.wallets||[]).forEach(w=>{
+        const sc = w.score;
+        const scoreTxt = sc
+          ? `<span class="${sc.passes?'pos':'neg'}">${(sc.win_rate*100).toFixed(0)}% win · PnL ${sc.pnl>=0?'+':''}${(sc.pnl).toFixed(1)} · DD ${(sc.max_drawdown*100).toFixed(0)}%</span>`
+          : '<span class="muted">—</span>';
+        const posTxt = (w.positions||[]).map(p=>`${p.side} ${p.symbol}`).join(', ') || '<span class="muted">aucune</span>';
+        const state = w.auto_disabled ? '<span class="neg">auto-off</span>'
+                    : (w.enabled ? '<span class="pos">oui</span>' : '<span class="muted">non</span>');
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td title="${w.address}">${w.label||w.address.slice(0,10)+'…'}</td>
+          <td class="muted">${w.source}</td><td>${scoreTxt}</td><td>${posTxt}</td>
+          <td><input type="checkbox" ${w.enabled?'checked':''} onchange="toggleWallet('${w.address}',this.checked)"> ${state}</td>
+          <td><button class="ghost" onclick="removeWallet('${w.address}')">🗑️</button></td>`;
+        tb.appendChild(tr);
+      });
+      if(!(r.wallets||[]).length) tb.innerHTML='<tr><td colspan="6" class="muted">Aucun wallet suivi. Ajoutez-en un ci-dessus.</td></tr>';
+    }
+    async function addWallet(){
+      if(!w_addr.value.trim()) return alert('Adresse requise.');
+      await api('/api/wallets/add','POST',{address:w_addr.value.trim(),label:w_label.value.trim(),source:w_source.value,chain:w_chain.value});
+      w_addr.value=''; w_label.value=''; loadWallets();
+    }
+    async function removeWallet(a){ await api('/api/wallets/remove','POST',{address:a,enabled:false}); loadWallets(); }
+    async function toggleWallet(a,en){ await api('/api/wallets/toggle','POST',{address:a,enabled:en}); }
+    async function refreshWallets(){ await api('/api/wallets/refresh','POST'); loadWallets(); }
+
+    // Évaluateur de rentabilité instantané, adaptatif par plateforme.
+    async function loadEval() {
+      const eg = parseFloat(expected_gross.value);
+      const r = await api('/api/profitability-eval?expected_gross='+eg);
+      const best = document.getElementById('eval-best');
+      best.innerHTML = r.best
+        ? `✅ Plus avantageuse : <span class="pos">${r.best}</span>`
+        : `<span class="neg">❌ Aucune plateforme rentable à ce niveau de gain</span>`;
+      const tb = document.querySelector('#eval-table tbody'); tb.innerHTML='';
+      (r.evaluations||[]).forEach(e=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${e.exchange}</td><td class="muted">${e.fee_model}</td>
+          <td>${(e.roundtrip_fees*100).toFixed(3)}%</td>
+          <td class="${e.net_edge>=0?'pos':'neg'}">${(e.net_edge*100).toFixed(3)}%</td>
+          <td>${e.profitable?'✅':'—'}</td>`;
+        tb.appendChild(tr);
+      });
+      if(!(r.evaluations||[]).length) tb.innerHTML='<tr><td colspan="5" class="muted">Aucune plateforme activée.</td></tr>';
+    }
+
+    async function toggleApp() {
+      await api('/api/settings','POST',{ scalp_enabled: scalp_enabled.checked, swing_enabled: swing_enabled.checked });
+    }
+
+    async function confirmLive(v) {
+      const r = await api('/api/live/confirm','POST',{confirm:v});
+      if (r.detail) alert(r.detail);
+      refreshAll();
+    }
+    async function resetKill(){ await api('/api/kill-switch/reset','POST'); refreshAll(); }
+
+    async function loadStatus() {
+      const s = await api('/api/status');
+      const b = document.getElementById('mode-badge');
+      b.textContent = s.mode; b.className = 'badge ' + (s.mode==='LIVE'?'live':'paper');
+      const kb = document.getElementById('kill-badge');
+      if (s.kill_switch){ kb.style.display='inline'; kb.className='badge kill'; kb.textContent='KILL-SWITCH'; }
+      else kb.style.display='none';
+      document.getElementById('dd').textContent =
+        `Drawdown: ${(s.daily_drawdown*100).toFixed(2)}% / max ${(s.max_daily_drawdown*100).toFixed(0)}%`;
+    }
+
+    async function loadExchanges() {
+      const list = await api('/api/exchanges');
+      const tb = document.querySelector('#exchanges-table tbody'); tb.innerHTML='';
+      list.forEach(e=>{
+        const tr=document.createElement('tr');
+        const fee = e.taker_fee!=null ? (e.taker_fee*100).toFixed(3)+'%' : '—';
+        const src = e.fee_from_account ? '<span class="pos">compte</span>' : '<span class="muted">défaut</span>';
+        tr.innerHTML = `<td>${e.name}</td><td>${e.has_credentials?'✅':'—'}</td>
+          <td>${fee} <span style="font-size:11px">(${src})</span></td>
+          <td><input type="checkbox" ${e.enabled?'checked':''} onchange="toggleExchange('${e.name}',this.checked)"></td>
+          <td><button class="ghost" title="Récupérer les frais réels" onclick="refreshFees('${e.name}')">⟳</button></td>`;
+        tb.appendChild(tr);
+      });
+    }
+    async function toggleExchange(name, enabled){ await api('/api/exchange/toggle','POST',{name,enabled}); }
+    async function refreshFees(name){
+      const r = await api('/api/exchange/refresh-fees','POST',{name,enabled:true});
+      alert(`${name} : ${r.note} (taker = ${(r.taker_fee*100).toFixed(3)}%)`);
+      loadExchanges();
+    }
+
+    async function loadProposals() {
+      const r = await api('/api/proposals');
+      const tb = document.querySelector('#proposals-table tbody'); tb.innerHTML='';
+      (r.proposals||[]).forEach(p=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${p.symbol}</td><td>${p.action}</td><td>${p.conviction.toFixed(2)}</td><td class="muted">${p.reasoning||''}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    async function loadTrades() {
+      const r = await api('/api/trades?limit=50');
+      const tb = document.querySelector('#trades-table tbody'); tb.innerHTML='';
+      (r.trades||[]).forEach(t=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td class="muted">${(t.timestamp||'').slice(11,19)}</td><td>${t.app}</td><td>${t.exchange}</td>
+          <td>${t.symbol}</td><td>${t.side}</td><td>${(+t.amount).toFixed(4)}</td><td>${(+t.price).toFixed(2)}</td>
+          <td>${t.stop_loss?(+t.stop_loss).toFixed(2):'—'}</td><td>${t.mode}</td><td>${t.pnl||'—'}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    // Formatage monétaire avec signe et coloration (+ vert / - rouge).
+    function money(v){ if(v===null||v===undefined) return '—';
+      const s = (v>=0?'+':'') + v.toFixed(2) + ' $'; return s; }
+    function cls(v){ return v===null||v===undefined ? '' : (v>=0?'pos':'neg'); }
+
+    async function loadPositions() {
+      const s = await api('/api/positions');
+      // Tuiles de synthèse : mise de départ, P&L réel, rendement, frais.
+      const totalNet = s.total_net_pnl, ret = s.return_pct;
+      document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="k-label">Mise de départ</div><div class="k-value">${s.starting_capital.toFixed(0)} $</div></div>
+        <div class="kpi"><div class="k-label">Capital actuel (estimé)</div><div class="k-value">${s.current_equity.toFixed(2)} $</div></div>
+        <div class="kpi"><div class="k-label">P&L net total (réel)</div><div class="k-value ${cls(totalNet)}">${money(totalNet)}</div></div>
+        <div class="kpi"><div class="k-label">Rendement / mise</div><div class="k-value ${cls(ret)}">${(ret*100).toFixed(2)} %</div></div>
+        <div class="kpi"><div class="k-label">Réalisé (fermé)</div><div class="k-value ${cls(s.realized_net_pnl)}">${money(s.realized_net_pnl)}</div></div>
+        <div class="kpi"><div class="k-label">Latent (ouvert)</div><div class="k-value ${cls(s.unrealized_net_pnl)}">${money(s.unrealized_net_pnl)}</div></div>
+        <div class="kpi"><div class="k-label">Frais cumulés</div><div class="k-value neg">-${s.total_fees.toFixed(2)} $</div></div>
+        <div class="kpi"><div class="k-label">Positions ouvertes</div><div class="k-value">${s.open_count}</div></div>`;
+
+      const tb = document.querySelector('#positions-table tbody'); tb.innerHTML='';
+      (s.positions||[]).forEach(p=>{
+        const tr=document.createElement('tr');
+        const rdt = p.return_pct===null?'—':`<span class="${cls(p.return_pct)}">${(p.return_pct*100).toFixed(2)}%</span>`;
+        tr.innerHTML=`<td>${p.symbol}</td><td>${p.app}</td><td>${p.side}</td><td>${p.amount.toFixed(4)}</td>
+          <td>${p.entry_price.toFixed(2)}</td><td>${p.current_price!=null?p.current_price.toFixed(2):'—'}</td>
+          <td class="${cls(p.gross_pnl)}">${money(p.gross_pnl)}</td>
+          <td class="neg">${p.fees!=null?'-'+p.fees.toFixed(2)+' $':'—'}</td>
+          <td class="${cls(p.net_pnl)}">${money(p.net_pnl)}</td><td>${rdt}</td>`;
+        tb.appendChild(tr);
+      });
+      document.getElementById('no-pos').style.display = (s.open_count>0)?'none':'block';
+    }
+
+    function refreshAll(){ loadStatus(); loadExchanges(); loadWallets(); loadProposals(); loadPositions(); loadTrades(); loadEval(); }
+    loadSettings(); refreshAll();
+    setInterval(refreshAll, 5000); // P&L / positions rafraîchis toutes les 5 s
+  </script>
+</body>
+</html>

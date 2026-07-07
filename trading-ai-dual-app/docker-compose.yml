@@ -1,0 +1,54 @@
+# ============================================================================
+# docker-compose.yml — orchestration des services trading-ai-dual-app
+# Un seul build d'image, plusieurs services qui surchargent la commande.
+# Le fichier .env est chargé automatiquement (jamais commité).
+# ============================================================================
+services:
+
+  # ---- Dashboard de pilotage (FastAPI) --------------------------------
+  dashboard:
+    build: .
+    image: trading-ai-dual-app
+    command: uvicorn dashboard.app:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    env_file: [.env]
+    volumes:
+      - ./logs:/app/logs        # logs CSV partagés entre services
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # ---- App swing (analyse Claude, 5 min) ------------------------------
+  app-swing:
+    image: trading-ai-dual-app
+    depends_on: [dashboard]
+    command: python app-swing/main.py
+    env_file: [.env]
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # ---- App scalp (haute fréquence) — désactivée par défaut ------------
+  app-scalp:
+    image: trading-ai-dual-app
+    depends_on: [dashboard]
+    command: python app-scalp/main.py
+    env_file: [.env]
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # ---- Agent de veille hebdomadaire -----------------------------------
+  auto-update:
+    image: trading-ai-dual-app
+    depends_on: [dashboard]
+    command: python auto-update/scheduler.py
+    env_file: [.env]
+    volumes:
+      - ./logs:/app/logs
+      - ./auto-update/reports:/app/auto-update/reports
+    restart: unless-stopped
+
+# Volumes nommés éventuels (ici on utilise des bind mounts locaux).
