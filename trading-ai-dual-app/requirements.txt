@@ -25,7 +25,9 @@ python-multipart>=0.0.9
 pandas>=2.1.0
 numpy>=1.26.0
 
-# ---- HTTP (alertes, scan GitHub) ----
+# ---- HTTP (alertes, scan GitHub, whale-tracker Hyperliquid/on-chain) ----
+# Le whale-tracker lit Hyperliquid, Etherscan/Polygonscan et les RPC publics
+# via de simples requêtes HTTP/JSON-RPC : pas besoin de web3.py.
 requests>=2.31.0
 
 # ---- Backtesting : Freqtrade installé comme dépendance (NE PAS réécrire) ----

@@ -18,9 +18,8 @@ paramètres relus en direct, stop-loss obligatoire, kill-switch global.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 
-from core import get_logger, registry, risk_manager, settings, RiskViolation
+from core import decision_engine, get_logger, registry, risk_manager, settings, TradeContext
 
 logger = get_logger("app-scalp")
 
@@ -84,27 +83,27 @@ async def _scan_symbol(connector, symbol: str) -> None:
     equity = connector.fetch_equity()
     risk_manager.update_equity(equity)
 
-    try:
-        # Filtre fee-aware : sur un scalp, le gain brut espéré ≈ le spread
-        # capturé. Le risk management refusera l'ordre si ce spread ne couvre
-        # pas l'aller-retour des frais + la marge nette minimale.
-        plan = risk_manager.build_order_plan(
-            symbol=symbol,
-            side=side,
-            entry_price=entry_price,
-            equity=equity,
-            stop_loss_pct=0.003,  # stop serré (0.3 %) — toujours présent
-            expected_gross_return=spread,
-            fee_rate=connector.fee_rate,
-        )
-        connector.place_order(plan, app="scalp", order_type="limit")
-        logger.info(
-            "[SCALP] %s %s @ %.4f (spread=%.4f imbalance=%.2f frais=%.4f)",
-            side, symbol, entry_price, spread, imbalance, connector.fee_rate,
-        )
-    except RiskViolation as exc:
-        # Inclut le cas « spread insuffisant pour couvrir les frais ».
-        logger.info("Trade scalp non retenu: %s", exc)
+    # ZÉRO LLM dans la boucle rapide (latence incompatible avec le scalping).
+    # Le signal du carnet EST la confirmation technique déterministe. On route
+    # malgré tout par le moteur de décision (principe fondateur) : il valide
+    # sizing, stop, exposition et rentabilité nette (le spread doit couvrir
+    # l'aller-retour des frais).
+    ctx = TradeContext(
+        symbol=symbol, side=side, entry_price=entry_price, equity=equity,
+        stop_loss_pct=0.003,                       # stop serré 0.3 % — toujours présent
+        strategy="scalp",
+        conviction=settings.conviction_threshold,  # le déséquilibre atteint le seuil
+        technical_confirmation=True,               # le carnet est le signal technique
+        expected_gross_return=spread,              # gain brut espéré ≈ spread capturé
+        fee_rate=connector.fee_rate, source="scalp",
+    )
+    decision = decision_engine.evaluate(ctx)
+    if decision.approved and decision.plan is not None:
+        connector.place_order(decision.plan, app="scalp", order_type="limit")
+        logger.info("[SCALP] %s %s @ %.4f (spread=%.4f imbalance=%.2f frais=%.4f)",
+                    side, symbol, entry_price, spread, imbalance, connector.fee_rate)
+    else:
+        logger.debug("Trade scalp non retenu: %s", "; ".join(decision.reasons))
 
 
 def _refresh_fees_on_start() -> None:

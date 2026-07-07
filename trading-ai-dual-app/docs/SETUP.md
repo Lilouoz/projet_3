@@ -138,6 +138,35 @@ depuis le dashboard (« Réarmer après kill-switch »).
 
 ---
 
+## 5 bis. Ajouter des wallets à suivre (copy-trading)
+
+Le module whale-tracker copie les positions de traders performants, après
+validation par le moteur de décision (jamais de copie aveugle).
+
+**Deux sources, toutes deux gratuites :**
+
+1. **Hyperliquid** (positions publiques) — aucune clé requise. Dans le
+   dashboard, panneau **🐋 Wallets suivis** :
+   - Collez l'adresse du trader, choisissez source **Hyperliquid**, cliquez
+     **➕ Suivre**.
+
+2. **Wallets on-chain** (Ethereum / Polygon) — clé d'explorateur gratuite
+   recommandée :
+   - Créez une clé gratuite sur [etherscan.io](https://etherscan.io/apis) et/ou
+     [polygonscan.com](https://polygonscan.com/apis).
+   - Renseignez `ETHERSCAN_API_KEY` / `POLYGONSCAN_API_KEY` dans `.env`.
+   - Dans le dashboard, ajoutez l'adresse avec source **On-chain** et la chaîne.
+
+**Scoring et sécurité :**
+
+- Chaque wallet est noté sur **30 jours glissants** (winrate, PnL, drawdown).
+- Un wallet sous les seuils (`WHALE_MIN_WINRATE`, `WHALE_MAX_DRAWDOWN`…) est
+  **désactivé automatiquement** (badge `auto-off`).
+- La position copiée est **fermée par anticipation** dès que le wallet source
+  réduit sa position **ou** que le momentum se retourne.
+
+Cliquez **↻ Scores** pour forcer un rafraîchissement.
+
 ## 6. Lancement via Docker
 
 ```bash
@@ -189,3 +218,7 @@ git push -u origin main
 3. **Kill-switch** global si drawdown journalier > 5 %.
 4. **Stop-loss attaché à chaque ordre** dès sa création, jamais après.
 5. **Backtest 12 mois** avant d'autoriser une stratégie en live.
+6. **Timeout LLM strict (10 s)** : pas de réponse = pas de trade, jamais de
+   position par défaut.
+7. Le **LLM n'exécute jamais** : toute exécution passe par le moteur de
+   décision déterministe (`core/decision.py`).

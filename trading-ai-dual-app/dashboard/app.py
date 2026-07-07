@@ -29,6 +29,7 @@ from pydantic import BaseModel
 
 from core import EXCHANGES, get_logger, portfolio, registry, risk_manager, settings
 from core.logger import TRADES_CSV
+from core.whale_tracker import whale_tracker
 
 logger = get_logger("dashboard")
 
@@ -54,6 +55,11 @@ class SettingsUpdate(BaseModel):
     risk_per_trade: float | None = None        # % du capital risqué par trade
     max_daily_drawdown: float | None = None    # seuil du kill-switch journalier
     starting_capital: float | None = None      # mise de départ (base du rendement)
+    min_net_margin: float | None = None        # marge nette min. après frais
+    # ---- Sizing Kelly & exposition -----------------------------------
+    kelly_fraction: float | None = None        # fraction de Kelly (0.5 = half)
+    max_position_pct: float | None = None      # plafond par position (6%)
+    max_total_exposure_pct: float | None = None  # plafond exposition totale
 
 
 class ExchangeToggle(BaseModel):
@@ -96,6 +102,13 @@ def update_settings(payload: SettingsUpdate):
         changes["max_daily_drawdown"] = max(0.01, min(0.50, changes["max_daily_drawdown"]))
     if "starting_capital" in changes:
         changes["starting_capital"] = max(0.0, changes["starting_capital"])
+    # Sizing Kelly & exposition : bornes de sécurité.
+    if "kelly_fraction" in changes:
+        changes["kelly_fraction"] = max(0.0, min(1.0, changes["kelly_fraction"]))
+    if "max_position_pct" in changes:
+        changes["max_position_pct"] = max(0.005, min(0.20, changes["max_position_pct"]))
+    if "max_total_exposure_pct" in changes:
+        changes["max_total_exposure_pct"] = max(0.05, min(3.0, changes["max_total_exposure_pct"]))
 
     settings.update(**changes)
 
@@ -265,9 +278,9 @@ def proposals():
                     "created_at": p.created_at,
                     "exchange": p.exchange,
                     "symbol": p.symbol,
-                    "action": p.analysis.action.value,
-                    "conviction": p.analysis.conviction,
-                    "reasoning": p.analysis.reasoning,
+                    "action": p.side.upper(),
+                    "conviction": p.conviction,
+                    "reasoning": p.thesis + " — " + "; ".join(p.reasons),
                     "entry_price": p.entry_price,
                 }
                 for p in list(items)
@@ -275,6 +288,56 @@ def proposals():
         }
     except Exception:  # noqa: BLE001 — l'app-swing peut tourner ailleurs
         return {"proposals": [], "note": "app-swing non chargée dans ce process"}
+
+
+class WalletAdd(BaseModel):
+    """Ajout d'un wallet à suivre (copy-trading)."""
+
+    address: str
+    label: str = ""
+    source: str = "hyperliquid"   # 'hyperliquid' ou 'onchain'
+    chain: str = "ethereum"
+
+
+class WalletToggle(BaseModel):
+    """Activation/désactivation d'un wallet suivi."""
+
+    address: str
+    enabled: bool
+
+
+@app.get("/api/wallets")
+def list_wallets():
+    """Liste des wallets suivis avec leur score et positions."""
+    return {"wallets": whale_tracker.list_wallets()}
+
+
+@app.post("/api/wallets/add")
+def add_wallet(payload: WalletAdd):
+    """Ajoute un wallet à suivre (éditable en live)."""
+    w = whale_tracker.add_wallet(payload.address, payload.label, payload.source, payload.chain)
+    return {"ok": True, "wallet": w.address}
+
+
+@app.post("/api/wallets/remove")
+def remove_wallet(payload: WalletToggle):
+    """Retire un wallet suivi (le champ enabled est ignoré)."""
+    ok = whale_tracker.remove_wallet(payload.address)
+    return {"ok": ok}
+
+
+@app.post("/api/wallets/toggle")
+def toggle_wallet(payload: WalletToggle):
+    """Active/désactive le suivi d'un wallet."""
+    ok = whale_tracker.set_enabled(payload.address, payload.enabled)
+    return {"ok": ok}
+
+
+@app.post("/api/wallets/refresh")
+def refresh_wallets():
+    """Force un rafraîchissement des scores/positions des wallets."""
+    whale_tracker.refresh()
+    return {"ok": True, "wallets": whale_tracker.list_wallets()}
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -27,6 +27,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 # Répertoires Freqtrade (convention `user_data`).
 HERE = Path(__file__).resolve().parent
@@ -121,6 +122,86 @@ def generate_html_report(strategy: str, timerange: str) -> Path:
     return plot_file
 
 
+def compute_kelly_params(strategy: str, timerange: str) -> Optional[dict]:
+    """
+    Calcule les paramètres de Kelly (W, R) depuis les résultats du backtest.
+
+    Freqtrade exporte les trades du backtest en JSON. On en déduit :
+      - win_rate  W = trades gagnants / total
+      - payoff_ratio R = gain moyen / perte moyenne
+    puis on écrit ces stats dans data/strategy_stats.json (lu en live par le
+    sizing Kelly). Best-effort : renvoie None si le fichier est introuvable.
+    """
+    # Freqtrade nomme le fichier d'export selon --export-filename.
+    export = RESULTS_DIR / f"{strategy}_{timerange}.json"
+    candidates = [export] + sorted(RESULTS_DIR.glob(f"{strategy}*.json"), reverse=True)
+    data = None
+    for path in candidates:
+        if path.exists():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                break
+            except json.JSONDecodeError:
+                continue
+    if data is None:
+        print("Résultats de backtest introuvables pour le calcul Kelly.", file=sys.stderr)
+        return None
+
+    # Structure Freqtrade : {'strategy': {name: {'trades': [...]}}} selon version.
+    trades = _extract_trades(data)
+    if not trades:
+        print("Aucun trade exploitable pour le calcul Kelly.", file=sys.stderr)
+        return None
+
+    profits = [float(t.get("profit_abs", t.get("profit_ratio", 0.0))) for t in trades]
+    wins = [p for p in profits if p > 0]
+    losses = [-p for p in profits if p < 0]
+    total = len(profits)
+    win_rate = len(wins) / total if total else 0.0
+    avg_win = sum(wins) / len(wins) if wins else 0.0
+    avg_loss = sum(losses) / len(losses) if losses else 0.0
+    payoff = (avg_win / avg_loss) if avg_loss > 0 else (1.0 if avg_win == 0 else 2.0)
+
+    stats = {
+        "win_rate": round(win_rate, 4),
+        "payoff_ratio": round(payoff, 4),
+        "trades": total,
+        "backtested": True,
+    }
+    _write_strategy_stats(strategy, stats)
+    print(f"Stats Kelly {strategy}: W={win_rate:.2%} R={payoff:.2f} sur {total} trades")
+    return stats
+
+
+def _extract_trades(data) -> list:
+    """Extrait la liste des trades de la structure d'export Freqtrade."""
+    if isinstance(data, dict):
+        if "trades" in data and isinstance(data["trades"], list):
+            return data["trades"]
+        strat = data.get("strategy")
+        if isinstance(strat, dict):
+            for val in strat.values():
+                if isinstance(val, dict) and isinstance(val.get("trades"), list):
+                    return val["trades"]
+    if isinstance(data, list):
+        return data
+    return []
+
+
+def _write_strategy_stats(strategy: str, stats: dict) -> None:
+    """Fusionne les stats calculées dans data/strategy_stats.json."""
+    stats_file = Path("data") / "strategy_stats.json"
+    stats_file.parent.mkdir(parents=True, exist_ok=True)
+    existing = {}
+    if stats_file.exists():
+        try:
+            existing = json.loads(stats_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            existing = {}
+    existing[strategy] = stats
+    stats_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+
+
 def mark_authorized(strategy: str, timerange: str) -> Path:
     """
     Écrit un jeton d'autorisation live pour la stratégie (règle n°5).
@@ -173,6 +254,10 @@ def main() -> int:
         return 1
 
     generate_html_report(args.strategy, timerange)
+
+    # Calcule et enregistre les paramètres Kelly (W, R) de la stratégie,
+    # utilisés en live par le sizing Kelly fractionnaire.
+    compute_kelly_params(args.strategy, timerange)
 
     if args.authorize:
         mark_authorized(args.strategy, timerange)

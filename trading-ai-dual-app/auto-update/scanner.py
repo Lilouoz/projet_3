@@ -129,18 +129,35 @@ def summarize_with_claude(repos: List[dict]) -> str:
 
 
 def write_report(summary: str, repos: List[dict]) -> Path:
-    """Écrit le rapport de veille Markdown et déclenche une alerte."""
+    """
+    Écrit le rapport de veille Markdown et propose une intégration en BRANCHE
+    SÉPARÉE (jamais d'auto-merge en prod).
+    """
     now = datetime.now(timezone.utc)
+    branch = f"veille/integration-{now:%Y-%m-%d}"
     report_path = REPORTS_DIR / f"veille_{now:%Y-%m-%d}.md"
     header = (
         f"# Rapport de veille — {now:%Y-%m-%d}\n\n"
         f"{len(repos)} repos analysés. **Aucune intégration automatique** : "
         "les propositions ci-dessous exigent une validation humaine puis un "
         "backtest 12 mois avant tout passage en live (règles n°5 et veille).\n\n"
+        "## Intégration proposée (branche séparée, jamais d'auto-merge)\n\n"
+        "Pour étudier une intégration, créez une branche dédiée puis ouvrez une "
+        "PR à relire manuellement :\n\n"
+        "```bash\n"
+        f"git checkout -b {branch}\n"
+        "# adapter la stratégie retenue sous /strategies, puis :\n"
+        "python -m backtest.run_backtest --strategy MaNouvelleStrategie --authorize\n"
+        f"git commit -am \"veille: intégration candidate {now:%Y-%m-%d}\"\n"
+        f"git push -u origin {branch}   # PR à relire, PAS de merge auto en prod\n"
+        "```\n\n"
     )
     report_path.write_text(header + summary + "\n", encoding="utf-8")
-    logger.info("Rapport de veille écrit: %s", report_path)
-    send_alert(f"Nouveau rapport de veille disponible: {report_path.name}", level="INFO")
+    logger.info("Rapport de veille écrit: %s (branche proposée: %s)", report_path, branch)
+    send_alert(
+        f"Veille: {report_path.name} — intégration à étudier en branche {branch}",
+        level="INFO",
+    )
     return report_path
 
 

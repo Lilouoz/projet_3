@@ -12,6 +12,7 @@ from .mean_reversion import MeanReversionStrategy
 from .momentum import MomentumStrategy
 from .grid import GridStrategy
 from .triangular_arb import TriangularArbStrategy, ArbOpportunity
+from .whale_follow import WhaleFollowStrategy
 
 # Registre nom -> classe, pour instancier dynamiquement.
 STRATEGIES = {
@@ -19,6 +20,7 @@ STRATEGIES = {
     MomentumStrategy.name: MomentumStrategy,
     GridStrategy.name: GridStrategy,
     TriangularArbStrategy.name: TriangularArbStrategy,
+    WhaleFollowStrategy.name: WhaleFollowStrategy,
 }
 
 
@@ -37,6 +39,7 @@ __all__ = [
     "GridStrategy",
     "TriangularArbStrategy",
     "ArbOpportunity",
+    "WhaleFollowStrategy",
     "STRATEGIES",
     "get_strategy",
 ]

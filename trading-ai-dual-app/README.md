@@ -9,14 +9,22 @@ temps réel.
 > ordre réel n'est passé tant que le live n'est pas explicitement autorisé
 > (deux verrous : `.env` **et** confirmation dans le dashboard).
 
+## 🧭 Principe fondateur (non négociable)
+
+**Le LLM analyse, il n'exécute JAMAIS.** Toute exécution passe par un
+**moteur de règles déterministe** (`core/decision.py`) qui valide seul :
+sizing (Kelly), stop-loss, exposition totale, cohérence du signal
+(conviction ≥ seuil **ET** confirmation technique), rentabilité nette.
+Aucun ordre ne peut être placé sur la seule sortie d'un LLM.
+
 ---
 
 ## 🎯 Les deux applications
 
-| App | Horizon | Principe | IA |
+| App | Horizon | Principe | LLM |
 |-----|---------|----------|----|
-| **app-scalp** | secondes | Suit le carnet d'ordres (websocket/REST), détecte micro-spreads + momentum court, exécute automatiquement. | Non |
-| **app-swing** | minutes–heures | OHLCV toutes les 5 min analysé par **Claude** (momentum, divergences, supports/résistances) → BUY/SELL/HOLD + conviction. Exécution auto si conviction > seuil, sinon validation manuelle. | Oui (Claude) |
+| **app-scalp** | secondes | Carnet d'ordres (websocket/REST), micro-spreads + momentum court. **Zéro LLM** dans la boucle rapide (latence incompatible). Exécution par règles pures via le moteur de décision. | Non |
+| **app-swing** | minutes–heures | OHLCV 5 min + positions des whales. Claude produit une **ANALYSE JSON** (thèse, conviction 0-100, invalidation, niveaux). Le **moteur de décision** décide seul (conviction ≥ seuil ET confirmation technique ET risk check). Mode manuel possible. | Analyste only |
 
 ---
 
@@ -24,14 +32,17 @@ temps réel.
 
 ```
 trading-ai-dual-app/
-├── core/          Connecteurs CCXT multi-exchange, .env, risk management, logger CSV + alertes
-├── app-scalp/     App 1 — scalping haute fréquence (carnet d'ordres)
-├── app-swing/     App 2 — swing trading analysé par Claude
-├── backtest/      Moteur de backtesting basé sur Freqtrade (rapports HTML : Sharpe, win rate, drawdown, profit factor)
-├── strategies/    Stratégies éprouvées unifiées : mean reversion, momentum, grid, arbitrage triangulaire
-├── auto-update/   Agent de veille hebdomadaire (GitHub + Freqtrade) → synthèse Claude, jamais d'auto-merge
-├── dashboard/     FastAPI + UI web : réglages live, on/off, P&L temps réel, historique
-└── docs/          SETUP.md (clés API, installation, lancement, paramétrage, push GitHub)
+├── core/               Connecteurs CCXT, .env, risk management, moteur de décision déterministe, logger
+│   ├── decision.py     Moteur de règles : le LLM n'exécute jamais, tout passe par ici
+│   ├── sizing/         Kelly Criterion fractionnaire (half-Kelly), plafonds 6% / 2%
+│   └── whale_tracker/  Copy-trading : Hyperliquid + wallets on-chain, scoring, sortie anticipée
+├── app-scalp/     App 1 — scalping haute fréquence, zéro LLM (règles pures)
+├── app-swing/     App 2 — Claude analyste (JSON) + moteur de décision, + copy-trading
+├── backtest/      Freqtrade (dépendance) : rapports HTML + calcul des paramètres Kelly
+├── strategies/    mean reversion, momentum, grid, arbitrage triangulaire, whale-follow
+├── auto-update/   Veille hebdo GitHub/Freqtrade → synthèse Claude, intégration en branche séparée
+├── dashboard/     FastAPI + UI : sliders live (Kelly, exposition…), wallets suivis + scores, P&L
+└── docs/          SETUP.md (clés API, install, lancement, ajout de wallets, push GitHub)
 ```
 
 ---
@@ -50,8 +61,13 @@ trading-ai-dual-app/
    → `backtest/run_backtest.py` (jeton d'autorisation)
 6. **Code commenté en français, README en français.** ✅
 
-Autre garde-fou : **position sizing à 2 %** du capital par trade
-(`RISK_PER_TRADE`, modifiable en live).
+Garde-fous supplémentaires :
+- **Sizing Kelly fractionnaire** (half-Kelly par défaut) plafonné à **6 %**
+  du capital par position et **2 %** de risque réel par trade
+  (`core/sizing`). Les paramètres W/R viennent du backtest.
+- **Timeout LLM strict de 10 s** (règle n°6) : pas de réponse = pas de
+  trade, jamais de position par défaut (`core/decision.py`, `analyzer.py`).
+- **Exposition totale plafonnée** (somme des positions, `MAX_TOTAL_EXPOSURE_PCT`).
 
 ### 💸 Rentabilité nette adaptative (fee-aware)
 
@@ -110,8 +126,12 @@ les rapports (Sharpe, win rate, max drawdown, profit factor). Détails :
 
 - Sliders/champs modifiables **en live** (paires, taille de position, seuil
   de conviction, spread min).
-- Panneau **Money management** piloté par l'utilisatrice : **mise de départ**,
-  **risque par trade** (borné à 10 %), **drawdown journalier max** (kill-switch).
+- Panneau **Money management** : **mise de départ**, **risque par trade**,
+  **drawdown max**, **fraction de Kelly**, **plafond par position**,
+  **exposition totale max**.
+- Panneau **🐋 Wallets suivis** : ajout/suppression/on-off des wallets
+  copiés, avec leur **score glissant 30 j** (winrate, PnL, drawdown) et leurs
+  positions ; désactivation automatique sous les seuils.
 - Panneau **Performance réelle (frais déduits)** : par position → P&L brut,
   frais, **P&L net (gain réel)**, rendement ; synthèse globale → capital
   actuel, **rendement en % sur la mise de départ**, réalisé vs latent, frais

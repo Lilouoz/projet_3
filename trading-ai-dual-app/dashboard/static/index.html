@@ -86,6 +86,16 @@
       <label>Marge nette min. après frais : <span id="margin_val" class="val"></span> <span class="muted">(0 = juste être positif)</span></label>
       <input id="min_net_margin" type="range" min="0" max="0.005" step="0.0001" oninput="margin_val.textContent=(this.value*100).toFixed(2)+'%'" />
 
+      <h2 style="margin-top:18px">📐 Sizing Kelly & exposition</h2>
+      <label>Fraction de Kelly : <span id="kf_val" class="val"></span> <span class="muted">(0.5 = half-Kelly)</span></label>
+      <input id="kelly_fraction" type="range" min="0" max="1" step="0.05" oninput="kf_val.textContent=this.value" />
+
+      <label>Plafond par position : <span id="mpp_val" class="val"></span> <span class="muted">(défaut 6%)</span></label>
+      <input id="max_position_pct" type="range" min="0.005" max="0.20" step="0.005" oninput="mpp_val.textContent=(this.value*100).toFixed(1)+'%'" />
+
+      <label>Exposition totale max : <span id="mte_val" class="val"></span></label>
+      <input id="max_total_exposure_pct" type="range" min="0.05" max="3" step="0.05" oninput="mte_val.textContent=(this.value*100).toFixed(0)+'%'" />
+
       <div style="margin-top:16px"><button onclick="saveMoney()">💾 Appliquer le money management</button></div>
     </section>
 
@@ -122,6 +132,28 @@
       <h2>Exchanges</h2>
       <table id="exchanges-table"><thead><tr><th>Exchange</th><th>Clés</th><th>Frais taker</th><th>Actif</th><th></th></tr></thead><tbody></tbody></table>
       <p class="muted" style="margin-top:8px">Frais « compte » = tes frais réels (via .env ou récupérés). Sinon valeur par défaut indicative — clique ⟳ pour récupérer les vrais frais après connexion.</p>
+    </section>
+
+    <!-- Whale-tracker : copy-trading -->
+    <section class="card full">
+      <h2>🐋 Wallets suivis (copy-trading)</h2>
+      <div class="row" style="flex-wrap:wrap; gap:6px">
+        <input id="w_addr" type="text" placeholder="Adresse 0x… ou compte Hyperliquid" style="flex:2; min-width:220px" />
+        <input id="w_label" type="text" placeholder="Libellé" style="flex:1; min-width:100px" />
+        <select id="w_source" style="padding:8px; border-radius:6px; background:#0d141c; color:var(--text); border:1px solid #33404f">
+          <option value="hyperliquid">Hyperliquid</option>
+          <option value="onchain">On-chain</option>
+        </select>
+        <select id="w_chain" style="padding:8px; border-radius:6px; background:#0d141c; color:var(--text); border:1px solid #33404f">
+          <option value="ethereum">Ethereum</option>
+          <option value="polygon">Polygon</option>
+        </select>
+        <button onclick="addWallet()">➕ Suivre</button>
+        <button class="ghost" onclick="refreshWallets()">↻ Scores</button>
+      </div>
+      <table id="wallets-table" style="margin-top:12px"><thead><tr>
+        <th>Wallet</th><th>Source</th><th>Score (30j)</th><th>Positions</th><th>Actif</th><th></th>
+      </tr></thead><tbody></tbody></table>
     </section>
 
     <!-- Propositions manuelles -->
@@ -172,6 +204,9 @@
       risk_per_trade.value = s.risk_per_trade; risk_val.textContent = (s.risk_per_trade*100).toFixed(1)+'%';
       max_daily_drawdown.value = s.max_daily_drawdown; dd_val.textContent = (s.max_daily_drawdown*100).toFixed(0)+'%';
       min_net_margin.value = s.min_net_margin; margin_val.textContent = (s.min_net_margin*100).toFixed(2)+'%';
+      kelly_fraction.value = s.kelly_fraction; kf_val.textContent = s.kelly_fraction;
+      max_position_pct.value = s.max_position_pct; mpp_val.textContent = (s.max_position_pct*100).toFixed(1)+'%';
+      max_total_exposure_pct.value = s.max_total_exposure_pct; mte_val.textContent = (s.max_total_exposure_pct*100).toFixed(0)+'%';
       eg_val.textContent = (parseFloat(expected_gross.value)*100).toFixed(2)+'%';
     }
 
@@ -192,10 +227,43 @@
         risk_per_trade: parseFloat(risk_per_trade.value),
         max_daily_drawdown: parseFloat(max_daily_drawdown.value),
         min_net_margin: parseFloat(min_net_margin.value),
+        kelly_fraction: parseFloat(kelly_fraction.value),
+        max_position_pct: parseFloat(max_position_pct.value),
+        max_total_exposure_pct: parseFloat(max_total_exposure_pct.value),
       });
       alert('Money management appliqué en live.');
       refreshAll();
     }
+
+    // ---- Whale-tracker (copy-trading) ----
+    async function loadWallets() {
+      const r = await api('/api/wallets');
+      const tb = document.querySelector('#wallets-table tbody'); tb.innerHTML='';
+      (r.wallets||[]).forEach(w=>{
+        const sc = w.score;
+        const scoreTxt = sc
+          ? `<span class="${sc.passes?'pos':'neg'}">${(sc.win_rate*100).toFixed(0)}% win · PnL ${sc.pnl>=0?'+':''}${(sc.pnl).toFixed(1)} · DD ${(sc.max_drawdown*100).toFixed(0)}%</span>`
+          : '<span class="muted">—</span>';
+        const posTxt = (w.positions||[]).map(p=>`${p.side} ${p.symbol}`).join(', ') || '<span class="muted">aucune</span>';
+        const state = w.auto_disabled ? '<span class="neg">auto-off</span>'
+                    : (w.enabled ? '<span class="pos">oui</span>' : '<span class="muted">non</span>');
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td title="${w.address}">${w.label||w.address.slice(0,10)+'…'}</td>
+          <td class="muted">${w.source}</td><td>${scoreTxt}</td><td>${posTxt}</td>
+          <td><input type="checkbox" ${w.enabled?'checked':''} onchange="toggleWallet('${w.address}',this.checked)"> ${state}</td>
+          <td><button class="ghost" onclick="removeWallet('${w.address}')">🗑️</button></td>`;
+        tb.appendChild(tr);
+      });
+      if(!(r.wallets||[]).length) tb.innerHTML='<tr><td colspan="6" class="muted">Aucun wallet suivi. Ajoutez-en un ci-dessus.</td></tr>';
+    }
+    async function addWallet(){
+      if(!w_addr.value.trim()) return alert('Adresse requise.');
+      await api('/api/wallets/add','POST',{address:w_addr.value.trim(),label:w_label.value.trim(),source:w_source.value,chain:w_chain.value});
+      w_addr.value=''; w_label.value=''; loadWallets();
+    }
+    async function removeWallet(a){ await api('/api/wallets/remove','POST',{address:a,enabled:false}); loadWallets(); }
+    async function toggleWallet(a,en){ await api('/api/wallets/toggle','POST',{address:a,enabled:en}); }
+    async function refreshWallets(){ await api('/api/wallets/refresh','POST'); loadWallets(); }
 
     // Évaluateur de rentabilité instantané, adaptatif par plateforme.
     async function loadEval() {
@@ -315,7 +383,7 @@
       document.getElementById('no-pos').style.display = (s.open_count>0)?'none':'block';
     }
 
-    function refreshAll(){ loadStatus(); loadExchanges(); loadProposals(); loadPositions(); loadTrades(); loadEval(); }
+    function refreshAll(){ loadStatus(); loadExchanges(); loadWallets(); loadProposals(); loadPositions(); loadTrades(); loadEval(); }
     loadSettings(); refreshAll();
     setInterval(refreshAll, 5000); // P&L / positions rafraîchis toutes les 5 s
   </script>

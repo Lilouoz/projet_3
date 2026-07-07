@@ -12,6 +12,10 @@ rapports HTML interactifs (Plotly) et de son écosystème de stratégies.
   négociable n°5 : **12 mois de backtest avant toute autorisation live**).
 - Produire des **rapports HTML** avec Sharpe, win rate, max drawdown,
   profit factor.
+- **Calculer les paramètres Kelly** (win rate W, ratio gain/perte R) de
+  chaque stratégie et les écrire dans `data/strategy_stats.json` — ces
+  valeurs alimentent le **sizing Kelly fractionnaire** en live
+  (`core/sizing`).
 - Écrire un **jeton d'autorisation** (`authorized/<Strategy>.json`) lu par
   les applications avant d'autoriser une stratégie en live.
 

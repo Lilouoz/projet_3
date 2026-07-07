@@ -92,9 +92,33 @@ class Settings:
     live_confirmed: bool = False  # confirmation manuelle via le dashboard
 
     # ---- Risk management (règles non négociables 3, 4, 5) --------------
+    # risk_per_trade = risque RÉEL par trade (distance au stop), plafond 2 %.
     risk_per_trade: float = field(default_factory=lambda: _env_float("RISK_PER_TRADE", 0.02))
     max_daily_drawdown: float = field(default_factory=lambda: _env_float("MAX_DAILY_DRAWDOWN", 0.05))
     require_stop_loss: bool = True  # stop-loss obligatoire sur CHAQUE position
+
+    # ---- Sizing Kelly fractionnaire (core/sizing) ---------------------
+    # Fraction de Kelly appliquée (0.5 = half-Kelly par défaut, prudent).
+    kelly_fraction: float = field(default_factory=lambda: _env_float("KELLY_FRACTION", 0.5))
+    # Plafond de taille d'UNE position, en fraction du capital (6 %).
+    max_position_pct: float = field(default_factory=lambda: _env_float("MAX_POSITION_PCT", 0.06))
+    # Plafond d'EXPOSITION TOTALE (somme des positions), en fraction du capital.
+    max_total_exposure_pct: float = field(
+        default_factory=lambda: _env_float("MAX_TOTAL_EXPOSURE_PCT", 1.0)
+    )
+
+    # ---- Contraintes LLM (règle non négociable n°6) -------------------
+    # Timeout strict des appels LLM. Pas de réponse dans ce délai = pas de
+    # trade (jamais de position par défaut).
+    llm_timeout_s: float = field(default_factory=lambda: _env_float("LLM_TIMEOUT_S", 10.0))
+
+    # ---- Whale-tracker (copy-trading) ---------------------------------
+    whale_min_winrate: float = field(default_factory=lambda: _env_float("WHALE_MIN_WINRATE", 0.5))
+    whale_min_pnl: float = field(default_factory=lambda: _env_float("WHALE_MIN_PNL", 0.0))
+    whale_max_drawdown: float = field(default_factory=lambda: _env_float("WHALE_MAX_DRAWDOWN", 0.3))
+    whale_score_window_days: int = field(
+        default_factory=lambda: int(_env_float("WHALE_SCORE_WINDOW_DAYS", 30))
+    )
 
     # ---- Paramètres de trading (modifiables en live) ------------------
     active_pairs: List[str] = field(

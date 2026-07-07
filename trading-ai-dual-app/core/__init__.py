@@ -15,6 +15,8 @@ from .exchange import registry, ExchangeConnector, ExchangeRegistry
 from .logger import get_logger, log_trade, send_alert
 from .portfolio import portfolio, Portfolio, Position, ClosedTrade
 from .profitability import check_profitability, ProfitabilityCheck
+from .sizing import size_position, SizingResult, stats_store, StrategyStats
+from .decision import decision_engine, DecisionEngine, TradeContext, Decision
 
 # Initialise la mise de départ du portefeuille à partir des réglages, afin
 # que le rendement (%) affiché dans le dashboard ait une base correcte.
@@ -41,4 +43,12 @@ __all__ = [
     "ClosedTrade",
     "check_profitability",
     "ProfitabilityCheck",
+    "size_position",
+    "SizingResult",
+    "stats_store",
+    "StrategyStats",
+    "decision_engine",
+    "DecisionEngine",
+    "TradeContext",
+    "Decision",
 ]
