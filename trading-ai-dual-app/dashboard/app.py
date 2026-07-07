@@ -120,15 +120,41 @@ def toggle_exchange(payload: ExchangeToggle):
 
 @app.get("/api/exchanges")
 def list_exchanges():
-    """État de tous les exchanges (activé + credentials présents)."""
-    return [
-        {
+    """État de tous les exchanges (activé, credentials, frais utilisés)."""
+    out = []
+    for name, cfg in EXCHANGES.items():
+        conn = registry.get(name)
+        out.append({
             "name": name,
             "enabled": cfg.enabled,
             "has_credentials": cfg.has_credentials,
-        }
-        for name, cfg in EXCHANGES.items()
-    ]
+            # Frais taker effectivement appliqués au calcul du P&L net.
+            "taker_fee": conn.fee_rate if conn else None,
+            # Vrai si le frais vient de TON compte (.env), pas d'un défaut.
+            "fee_from_account": bool(cfg.taker_fee and cfg.taker_fee > 0),
+        })
+    return out
+
+
+@app.post("/api/exchange/refresh-fees")
+def refresh_fees(payload: ExchangeToggle):
+    """
+    Récupère les frais réels de ton compte via CCXT (nécessite les clés API).
+
+    Best-effort : renvoie le frais taker réel si la plateforme l'expose.
+    (On réutilise le schéma ExchangeToggle ; seul `name` est utilisé.)
+    """
+    conn = registry.get(payload.name)
+    if conn is None:
+        raise HTTPException(status_code=404, detail=f"Exchange inconnu: {payload.name}")
+    taker = conn.refresh_real_fees()
+    return {
+        "ok": taker is not None,
+        "exchange": payload.name,
+        "taker_fee": conn.fee_rate,
+        "note": "frais réels récupérés" if taker is not None
+                else "indisponible (clés requises ou non exposé) — valeur par défaut conservée",
+    }
 
 
 @app.post("/api/live/confirm")

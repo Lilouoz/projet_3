@@ -58,6 +58,11 @@ class ExchangeConfig:
     api_secret: str = ""          # idem
     api_password: str = ""        # certaines plateformes (kraken, cryptocom)
     enabled: bool = False         # exchange actif ou non (togglable en live)
+    # Frais réels de TON compte sur cette plateforme (dépend du palier).
+    # 0 = non renseigné → on récupère les frais réels via CCXT une fois
+    # connecté, sinon on retombe sur une valeur par défaut indicative.
+    taker_fee: float = 0.0
+    maker_fee: float = 0.0
 
     @property
     def has_credentials(self) -> bool:
@@ -168,6 +173,9 @@ def load_exchanges() -> Dict[str, ExchangeConfig]:
             api_secret=os.getenv(f"{prefix}_API_SECRET", ""),
             api_password=os.getenv(f"{prefix}_API_PASSWORD", ""),
             enabled=_env_bool(f"{prefix}_ENABLED", False),
+            # Frais réels optionnels : renseignés une fois la plateforme connue.
+            taker_fee=_env_float(f"{prefix}_TAKER_FEE", 0.0),
+            maker_fee=_env_float(f"{prefix}_MAKER_FEE", 0.0),
         )
     return exchanges
 

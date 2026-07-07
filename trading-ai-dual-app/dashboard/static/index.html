@@ -106,7 +106,8 @@
     <!-- Exchanges -->
     <section class="card">
       <h2>Exchanges</h2>
-      <table id="exchanges-table"><thead><tr><th>Exchange</th><th>Clés</th><th>Actif</th></tr></thead><tbody></tbody></table>
+      <table id="exchanges-table"><thead><tr><th>Exchange</th><th>Clés</th><th>Frais taker</th><th>Actif</th><th></th></tr></thead><tbody></tbody></table>
+      <p class="muted" style="margin-top:8px">Frais « compte » = tes frais réels (via .env ou récupérés). Sinon valeur par défaut indicative — clique ⟳ pour récupérer les vrais frais après connexion.</p>
     </section>
 
     <!-- Propositions manuelles -->
@@ -206,12 +207,21 @@
       const tb = document.querySelector('#exchanges-table tbody'); tb.innerHTML='';
       list.forEach(e=>{
         const tr=document.createElement('tr');
+        const fee = e.taker_fee!=null ? (e.taker_fee*100).toFixed(3)+'%' : '—';
+        const src = e.fee_from_account ? '<span class="pos">compte</span>' : '<span class="muted">défaut</span>';
         tr.innerHTML = `<td>${e.name}</td><td>${e.has_credentials?'✅':'—'}</td>
-          <td><input type="checkbox" ${e.enabled?'checked':''} onchange="toggleExchange('${e.name}',this.checked)"></td>`;
+          <td>${fee} <span style="font-size:11px">(${src})</span></td>
+          <td><input type="checkbox" ${e.enabled?'checked':''} onchange="toggleExchange('${e.name}',this.checked)"></td>
+          <td><button class="ghost" title="Récupérer les frais réels" onclick="refreshFees('${e.name}')">⟳</button></td>`;
         tb.appendChild(tr);
       });
     }
     async function toggleExchange(name, enabled){ await api('/api/exchange/toggle','POST',{name,enabled}); }
+    async function refreshFees(name){
+      const r = await api('/api/exchange/refresh-fees','POST',{name,enabled:true});
+      alert(`${name} : ${r.note} (taker = ${(r.taker_fee*100).toFixed(3)}%)`);
+      loadExchanges();
+    }
 
     async function loadProposals() {
       const r = await api('/api/proposals');

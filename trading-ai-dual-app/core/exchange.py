@@ -68,8 +68,66 @@ class ExchangeConnector:
 
     @property
     def fee_rate(self) -> float:
-        """Frais taker de cet exchange (pour le calcul du P&L net)."""
+        """
+        Frais taker utilisés pour le calcul du P&L net.
+
+        Priorité (du plus fiable au plus générique) :
+          1. Frais réels de TON compte, renseignés dans .env
+             (<EXCHANGE>_TAKER_FEE) une fois la plateforme connue.
+          2. Valeur par défaut indicative propre à l'exchange.
+          3. Valeur générique par défaut (0,1 %).
+
+        Astuce : appelle `refresh_real_fees()` après connexion pour récupérer
+        automatiquement les frais réels via CCXT (option 1 sans saisie).
+        """
+        if self.config.taker_fee and self.config.taker_fee > 0:
+            return self.config.taker_fee
         return _TAKER_FEES.get(self.name, DEFAULT_TAKER_FEE)
+
+    def refresh_real_fees(self) -> Optional[float]:
+        """
+        Récupère les frais réels de ton compte via CCXT et les mémorise.
+
+        Nécessite des clés API valides et une connexion. Best-effort : en cas
+        d'échec (plateforme sans endpoint, clés absentes), on garde la valeur
+        courante. Renseigne `config.taker_fee`/`maker_fee` si disponibles.
+
+        Returns:
+            Le taux taker réel récupéré, ou None si indisponible.
+        """
+        client = self.connect()
+        if client is None:
+            return None
+        try:
+            # `fetch_trading_fees` renvoie les frais par marché ou globaux
+            # selon la plateforme. On tente une valeur représentative.
+            fees = client.fetch_trading_fees()
+        except Exception as exc:  # noqa: BLE001 — best-effort, jamais bloquant
+            logger.info("[%s] Frais réels indisponibles via CCXT: %s", self.name, exc)
+            return None
+
+        taker = self._extract_fee(fees, "taker")
+        maker = self._extract_fee(fees, "maker")
+        if taker is not None:
+            self.config.taker_fee = taker
+            logger.info("[%s] Frais taker réels récupérés: %.4f%%", self.name, taker * 100)
+        if maker is not None:
+            self.config.maker_fee = maker
+        return taker
+
+    @staticmethod
+    def _extract_fee(fees: dict, kind: str) -> Optional[float]:
+        """Extrait un taux de frais représentatif de la réponse CCXT."""
+        if not isinstance(fees, dict):
+            return None
+        # Cas global : {'taker': 0.001, 'maker': 0.0008, ...}
+        if isinstance(fees.get(kind), (int, float)):
+            return float(fees[kind])
+        # Cas par marché : {'BTC/USDT': {'taker': 0.001, ...}, ...}
+        for value in fees.values():
+            if isinstance(value, dict) and isinstance(value.get(kind), (int, float)):
+                return float(value[kind])
+        return None
 
     def connect(self) -> Optional[ccxt.Exchange]:
         """
