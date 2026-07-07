@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading AI Dual App — Dashboard</title>
+  <style>
+    /* Interface simple, lisible, sans dépendance externe (CSP-friendly). */
+    :root { --bg:#0f1720; --card:#1a2432; --accent:#3ba776; --danger:#e05252; --text:#e6edf3; --muted:#8b98a5; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); }
+    header { padding:16px 24px; background:var(--card); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+    header h1 { font-size:18px; margin:0; }
+    .badge { padding:4px 10px; border-radius:12px; font-size:13px; font-weight:600; }
+    .badge.paper { background:#274; color:#cfe; }
+    .badge.live { background:#a33; color:#fee; }
+    .badge.kill { background:var(--danger); color:#fff; }
+    main { padding:24px; display:grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
+    .card { background:var(--card); border-radius:12px; padding:20px; }
+    .card h2 { margin:0 0 14px; font-size:15px; color:var(--accent); }
+    label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+    input[type=text], input[type=number] { width:100%; padding:8px; border-radius:6px; border:1px solid #33404f; background:#0d141c; color:var(--text); }
+    input[type=range] { width:100%; }
+    .row { display:flex; align-items:center; gap:10px; justify-content:space-between; margin:8px 0; }
+    button { background:var(--accent); color:#04140c; border:none; padding:9px 14px; border-radius:6px; font-weight:600; cursor:pointer; }
+    button.danger { background:var(--danger); color:#fff; }
+    button.ghost { background:transparent; border:1px solid #33404f; color:var(--text); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { text-align:left; padding:6px 8px; border-bottom:1px solid #26313f; }
+    th { color:var(--muted); font-weight:500; }
+    .switch { display:inline-flex; align-items:center; gap:6px; }
+    .val { color:var(--accent); font-weight:600; }
+    .muted { color:var(--muted); font-size:12px; }
+    .full { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚡ Trading AI Dual App</h1>
+    <span id="mode-badge" class="badge paper">PAPER</span>
+    <span id="kill-badge" class="badge" style="display:none"></span>
+    <span id="dd" class="muted"></span>
+    <button class="ghost" onclick="refreshAll()">↻ Rafraîchir</button>
+  </header>
+
+  <main>
+    <!-- Contrôles live -->
+    <section class="card">
+      <h2>Paramètres (modifiables en live)</h2>
+      <label>Paires actives (séparées par virgule)</label>
+      <input id="active_pairs" type="text" placeholder="BTC/USDT,ETH/USDT" />
+
+      <label>Taille de position (USD) : <span id="pos_val" class="val"></span></label>
+      <input id="position_size_usd" type="range" min="10" max="2000" step="10" oninput="pos_val.textContent=this.value" />
+
+      <label>Seuil de conviction (app-swing) : <span id="conv_val" class="val"></span></label>
+      <input id="conviction_threshold" type="range" min="0" max="1" step="0.05" oninput="conv_val.textContent=this.value" />
+
+      <label>Spread minimal (app-scalp) : <span id="spread_val" class="val"></span></label>
+      <input id="min_spread" type="range" min="0" max="0.005" step="0.0001" oninput="spread_val.textContent=this.value" />
+
+      <label>Risque par trade : <span id="risk_val" class="val"></span></label>
+      <input id="risk_per_trade" type="range" min="0.005" max="0.05" step="0.005" oninput="risk_val.textContent=this.value" />
+
+      <div style="margin-top:16px"><button onclick="saveSettings()">💾 Appliquer</button></div>
+    </section>
+
+    <!-- On/Off par app -->
+    <section class="card">
+      <h2>Applications</h2>
+      <div class="row"><span>App Scalp (haute fréquence)</span>
+        <label class="switch"><input id="scalp_enabled" type="checkbox" onchange="toggleApp()"> on/off</label></div>
+      <div class="row"><span>App Swing (Claude, 5 min)</span>
+        <label class="switch"><input id="swing_enabled" type="checkbox" onchange="toggleApp()"> on/off</label></div>
+
+      <h2 style="margin-top:20px">Passage en LIVE</h2>
+      <p class="muted">Requiert LIVE_TRADING=true dans .env ET la confirmation ci-dessous (règle non négociable n°1).</p>
+      <div class="row">
+        <button class="danger" onclick="confirmLive(true)">Confirmer LIVE</button>
+        <button class="ghost" onclick="confirmLive(false)">Revenir en PAPER</button>
+      </div>
+      <div class="row"><button class="ghost" onclick="resetKill()">Réarmer après kill-switch</button></div>
+    </section>
+
+    <!-- Exchanges -->
+    <section class="card">
+      <h2>Exchanges</h2>
+      <table id="exchanges-table"><thead><tr><th>Exchange</th><th>Clés</th><th>Actif</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <!-- Propositions manuelles -->
+    <section class="card">
+      <h2>Propositions à valider (app-swing)</h2>
+      <table id="proposals-table"><thead><tr><th>Paire</th><th>Action</th><th>Conv.</th><th>Raison</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <!-- Historique des trades -->
+    <section class="card full">
+      <h2>Historique des trades</h2>
+      <table id="trades-table"><thead><tr>
+        <th>Heure</th><th>App</th><th>Exchange</th><th>Paire</th><th>Sens</th><th>Qté</th><th>Prix</th><th>Stop</th><th>Mode</th><th>P&L</th>
+      </tr></thead><tbody></tbody></table>
+    </section>
+  </main>
+
+  <script>
+    // Toutes les interactions passent par l'API FastAPI (core.settings).
+    async function api(path, method='GET', body=null) {
+      const opts = { method, headers: {'Content-Type':'application/json'} };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(path, opts);
+      return r.json();
+    }
+
+    async function loadSettings() {
+      const s = await api('/api/settings');
+      active_pairs.value = (s.active_pairs||[]).join(',');
+      position_size_usd.value = s.position_size_usd; pos_val.textContent = s.position_size_usd;
+      conviction_threshold.value = s.conviction_threshold; conv_val.textContent = s.conviction_threshold;
+      min_spread.value = s.min_spread; spread_val.textContent = s.min_spread;
+      risk_per_trade.value = s.risk_per_trade; risk_val.textContent = s.risk_per_trade;
+      scalp_enabled.checked = s.scalp_enabled;
+      swing_enabled.checked = s.swing_enabled;
+    }
+
+    async function saveSettings() {
+      await api('/api/settings','POST',{
+        active_pairs: active_pairs.value.split(',').map(x=>x.trim()).filter(Boolean),
+        position_size_usd: parseFloat(position_size_usd.value),
+        conviction_threshold: parseFloat(conviction_threshold.value),
+        min_spread: parseFloat(min_spread.value),
+        risk_per_trade: parseFloat(risk_per_trade.value),
+      });
+      alert('Paramètres appliqués en live.');
+    }
+
+    async function toggleApp() {
+      await api('/api/settings','POST',{ scalp_enabled: scalp_enabled.checked, swing_enabled: swing_enabled.checked });
+    }
+
+    async function confirmLive(v) {
+      const r = await api('/api/live/confirm','POST',{confirm:v});
+      if (r.detail) alert(r.detail);
+      refreshAll();
+    }
+    async function resetKill(){ await api('/api/kill-switch/reset','POST'); refreshAll(); }
+
+    async function loadStatus() {
+      const s = await api('/api/status');
+      const b = document.getElementById('mode-badge');
+      b.textContent = s.mode; b.className = 'badge ' + (s.mode==='LIVE'?'live':'paper');
+      const kb = document.getElementById('kill-badge');
+      if (s.kill_switch){ kb.style.display='inline'; kb.className='badge kill'; kb.textContent='KILL-SWITCH'; }
+      else kb.style.display='none';
+      document.getElementById('dd').textContent =
+        `Drawdown: ${(s.daily_drawdown*100).toFixed(2)}% / max ${(s.max_daily_drawdown*100).toFixed(0)}%`;
+    }
+
+    async function loadExchanges() {
+      const list = await api('/api/exchanges');
+      const tb = document.querySelector('#exchanges-table tbody'); tb.innerHTML='';
+      list.forEach(e=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td>${e.name}</td><td>${e.has_credentials?'✅':'—'}</td>
+          <td><input type="checkbox" ${e.enabled?'checked':''} onchange="toggleExchange('${e.name}',this.checked)"></td>`;
+        tb.appendChild(tr);
+      });
+    }
+    async function toggleExchange(name, enabled){ await api('/api/exchange/toggle','POST',{name,enabled}); }
+
+    async function loadProposals() {
+      const r = await api('/api/proposals');
+      const tb = document.querySelector('#proposals-table tbody'); tb.innerHTML='';
+      (r.proposals||[]).forEach(p=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${p.symbol}</td><td>${p.action}</td><td>${p.conviction.toFixed(2)}</td><td class="muted">${p.reasoning||''}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    async function loadTrades() {
+      const r = await api('/api/trades?limit=50');
+      const tb = document.querySelector('#trades-table tbody'); tb.innerHTML='';
+      (r.trades||[]).forEach(t=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td class="muted">${(t.timestamp||'').slice(11,19)}</td><td>${t.app}</td><td>${t.exchange}</td>
+          <td>${t.symbol}</td><td>${t.side}</td><td>${(+t.amount).toFixed(4)}</td><td>${(+t.price).toFixed(2)}</td>
+          <td>${t.stop_loss?(+t.stop_loss).toFixed(2):'—'}</td><td>${t.mode}</td><td>${t.pnl||'—'}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    function refreshAll(){ loadStatus(); loadExchanges(); loadProposals(); loadTrades(); }
+    loadSettings(); refreshAll();
+    setInterval(refreshAll, 5000); // P&L / positions rafraîchis toutes les 5 s
+  </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+# Package backtest — wrapper Freqtrade
